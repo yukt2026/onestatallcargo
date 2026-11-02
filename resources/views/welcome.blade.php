@@ -1,6 +1,7 @@
 @extends('layouts.public')
 
-@section('title', 'OneStall Cargo | Shipping Solutions Designed To Help You Grow')
+@section('title', 'OneStall Cargo | Leading Logistics & Courier Solutions')
+@section('meta_description', 'OneStall Cargo is India\'s premier tech-enabled courier and logistics company. Seamless B2C express shipping, B2B cargo delivery, nationwide franchise hubs, and automated business shipping.')
 
 @section('content')
 <!-- 1. Hero Section -->

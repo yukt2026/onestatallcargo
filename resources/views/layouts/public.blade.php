@@ -8,15 +8,15 @@
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', setting('site_name', 'OneStall Cargo') . ' | ' . setting('site_tagline', 'Premium Logistics & Courier Platform'))</title>
-    <meta name="description" content="@yield('meta_description', setting('meta_description', 'OneStall Cargo is a complete logistics infrastructure covering B2C shipping, B2B/Cargo, international shipping, courier aggregation, and API integrations.'))">
+    <title>@yield('title', setting('site_name', 'OneStall Cargo') . ' | ' . setting('site_tagline', 'Leading Logistics & Courier Company'))</title>
+    <meta name="description" content="@yield('meta_description', setting('meta_description', 'OneStall Cargo is India\'s premier tech-enabled courier and logistics company covering B2C express shipping, B2B/Cargo, international delivery, franchise hub networks, and API integrations.'))">
     
     <!-- Open Graph / WhatsApp / Facebook Meta Tags -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ url()->current() }}">
     <meta property="og:site_name" content="{{ setting('site_name', 'OneStall Cargo') }}">
     <meta property="og:title" content="@yield('title', setting('site_name', 'OneStall Cargo') . ' | ' . setting('site_tagline', 'Shipping Solutions Designed To Help You Grow'))">
-    <meta property="og:description" content="@yield('meta_description', setting('meta_description', 'OneStall Cargo is a complete logistics infrastructure covering B2C shipping, B2B/Cargo, international shipping, courier aggregation, and API integrations.'))">
+    <meta property="og:description" content="@yield('meta_description', setting('meta_description', 'OneStall Cargo is India\'s premier tech-enabled courier and logistics company covering B2C express shipping, B2B/Cargo, international delivery, franchise hub networks, and API integrations.'))">
     <meta property="og:image" content="{{ asset(setting('og_image', 'images/og-preview.jpg')) }}">
     <meta property="og:image:secure_url" content="{{ asset(setting('og_image', 'images/og-preview.jpg')) }}">
     <meta property="og:image:type" content="image/jpeg">
@@ -28,7 +28,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="{{ url()->current() }}">
     <meta name="twitter:title" content="@yield('title', setting('site_name', 'OneStall Cargo'))">
-    <meta name="twitter:description" content="@yield('meta_description', setting('meta_description', 'OneStall Cargo is a complete logistics infrastructure covering B2C shipping, B2B/Cargo, international shipping, courier aggregation, and API integrations.'))">
+    <meta name="twitter:description" content="@yield('meta_description', setting('meta_description', 'OneStall Cargo is India\'s premier tech-enabled courier and logistics company covering B2C express shipping, B2B/Cargo, international delivery, franchise hub networks, and API integrations.'))">
     <meta name="twitter:image" content="{{ asset(setting('og_image', 'images/og-preview.jpg')) }}">
     
     <!-- Fonts: Inter -->

@@ -1,4 +1,6 @@
 @extends('layouts.public')
+@section('title', 'Contact OneStall Cargo | Direct Logistics & Courier Partner')
+@section('meta_description', 'Contact OneStall Cargo for express courier booking, B2B cargo shipping, franchise logistics hubs, and enterprise supply chain partnerships.')
 @section('content')
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <h1 class="text-3xl font-extrabold text-brand-navy mb-8 text-center">Contact Us</h1>

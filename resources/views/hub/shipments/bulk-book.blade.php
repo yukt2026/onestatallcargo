@@ -4,7 +4,7 @@
 <div class="max-w-4xl mx-auto space-y-6">
     <div>
         <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Bulk Upload Bookings</h1>
-        <p class="text-sm text-gray-500 mt-1">Upload an Excel or CSV file to book 100+ orders instantly via our Carrier Aggregator API.</p>
+        <p class="text-sm text-gray-500 mt-1">Upload an Excel or CSV file to book 100+ orders instantly via our OneStall Express Carrier API.</p>
     </div>
 
     <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-6 md:p-12 text-center">

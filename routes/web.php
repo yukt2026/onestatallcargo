@@ -38,7 +38,7 @@ Route::get('/solutions/b2c-shipping', function () { return view('public.solution
 Route::get('/solutions/b2b-cargo', function () { return view('public.solutions.b2b'); })->name('solutions.b2b');
 Route::get('/solutions/international-shipping', function () { return view('public.solutions.international'); })->name('solutions.international');
 Route::get('/solutions/quick-delivery', function () { return view('public.solutions.quick'); })->name('solutions.quick');
-Route::get('/solutions/courier-aggregation', function () { return view('public.solutions.aggregation'); })->name('solutions.aggregation');
+Route::redirect('/solutions/courier-aggregation', '/solutions/b2c-shipping', 301)->name('solutions.aggregation');
 Route::get('/solutions/ecommerce-integration', function () { return view('public.solutions.ecommerce'); })->name('solutions.ecommerce');
 
 Route::get('/platform/video-evidence', function () { return view('public.platform.evidence'); })->name('platform.evidence');

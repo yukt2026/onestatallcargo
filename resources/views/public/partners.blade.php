@@ -14,7 +14,7 @@
                     Grow Your Fleet With <span class="text-brand-red">OneStall Partner Network</span>
                 </h1>
                 <p class="text-base md:text-lg text-gray-700 mb-8 font-medium leading-relaxed">
-                    Join India's fastest-growing logistics aggregator. Connect your courier company, transport fleet, or hyperlocal rider network to receive daily parcel loads and guaranteed automated payouts.
+                    Join India's fastest-growing logistics and courier network. Connect your transport fleet, vehicle network, or regional logistics company to receive daily parcel loads and guaranteed automated payouts.
                 </p>
                 <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                     <a href="#partner-form" class="px-8 py-3.5 rounded-full bg-brand-red text-white font-bold text-base hover:bg-brand-redHover transition shadow-md shadow-red-500/20">

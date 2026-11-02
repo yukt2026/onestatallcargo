@@ -8,7 +8,7 @@
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'OneStall Cargo - Premier Courier Aggregator')</title>
+    <title>@yield('title', 'OneStall Cargo - Premier Logistics & Courier Company')</title>
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <!-- FontAwesome -->
@@ -99,7 +99,7 @@
                     <div class="flex items-center gap-2 mb-4">
                         <img src="{{ asset('images/logo.jpg') }}" alt="OneStall Cargo" class="h-10 object-contain rounded bg-white p-1" style="max-width: 150px;">
                     </div>
-                    <p class="text-sm mb-6 leading-relaxed">Your ultimate logistics partner. B2B, B2C, Freight, and E-commerce aggregator API connecting you to the best delivery networks worldwide.</p>
+                    <p class="text-sm mb-6 leading-relaxed">Your ultimate logistics partner. Tech-enabled courier and cargo company providing express B2C delivery, B2B freight, nationwide franchise hubs, and business shipping APIs.</p>
                     <div class="flex space-x-4">
                         <a href="#" class="text-gray-500 hover:text-[#FFD700] transition"><i class="fa-brands fa-linkedin text-xl"></i></a>
                         <a href="#" class="text-gray-500 hover:text-[#FFD700] transition"><i class="fa-brands fa-twitter text-xl"></i></a>
