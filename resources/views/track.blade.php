@@ -48,35 +48,50 @@
                         <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">AWB Number</div>
                         <h2 class="text-xl md:text-2xl font-black text-brand-navy font-mono">{{ $shipment->awb_number }}</h2>
                     </div>
+                    @php
+                        $s = strtolower(trim($shipment->status ?? ''));
+                        if ($s === 'delivered') {
+                            $pillClass = 'bg-emerald-100 text-emerald-800 border border-emerald-300';
+                        } elseif (str_starts_with($s, 'rto')) {
+                            $pillClass = 'bg-orange-100 text-orange-800 border border-orange-300';
+                        } elseif (str_starts_with($s, 'cancel') || in_array($s, ['ndr', 'action_required', 'undelivered'])) {
+                            $pillClass = 'bg-rose-100 text-rose-800 border border-rose-300';
+                        } elseif (in_array($s, ['out for delivery', 'out_for_delivery', 'ofd'])) {
+                            $pillClass = 'bg-cyan-100 text-cyan-800 border border-cyan-300';
+                        } elseif (in_array($s, ['in transit', 'in_transit', 'transit'])) {
+                            $pillClass = 'bg-purple-100 text-purple-800 border border-purple-300';
+                        } else {
+                            $pillClass = 'bg-blue-100 text-blue-800 border border-blue-300';
+                        }
+                    @endphp
                     <div class="flex items-center gap-2">
                         <span class="px-3 py-1 bg-blue-50 border border-blue-200 text-brand-navy font-bold rounded-full text-xs uppercase">
-                            {{ $shipment->courier_name ?? 'OneStall Express' }}
+                            {{ $shipment->courier_partner ?? $shipment->courier_name ?? 'OneStall Express' }}
                         </span>
-                        <span class="px-3 py-1 bg-green-100 text-green-700 font-extrabold uppercase rounded-full text-xs">
+                        <span class="px-3 py-1 {{ $pillClass }} font-extrabold uppercase rounded-full text-xs">
                             {{ $shipment->status }}
                         </span>
                     </div>
                 </div>
 
                 @php
-                    $s = strtolower($shipment->status ?? '');
                     $progress = 0;
                     $step1 = false; $step2 = false; $step3 = false; $step4 = false;
                     $isException = false;
 
-                    if (in_array($s, ['new', 'booked', 'manifested', 'pickup scheduled', 'pickup_scheduled'])) {
+                    if (in_array($s, ['new', 'booked', 'manifested', 'pickup scheduled', 'pickup_scheduled', 'pickup pending', 'pickup_pending']) || str_starts_with($s, 'pickup')) {
                         $progress = 25;
                         $step1 = true;
-                    } elseif (in_array($s, ['picked_up', 'pickups', 'dispatched'])) {
+                    } elseif (in_array($s, ['picked_up', 'pickups', 'dispatched', 'bagged', 'sealed', 'received'])) {
                         $progress = 50;
                         $step1 = true; $step2 = true;
-                    } elseif (in_array($s, ['in_transit', 'in transit', 'transit', 'out for delivery', 'out_for_delivery'])) {
+                    } elseif (in_array($s, ['in_transit', 'in transit', 'transit', 'out for delivery', 'out_for_delivery', 'ofd'])) {
                         $progress = 75;
                         $step1 = true; $step2 = true; $step3 = true;
                     } elseif (in_array($s, ['delivered'])) {
                         $progress = 100;
                         $step1 = true; $step2 = true; $step3 = true; $step4 = true;
-                    } elseif (in_array($s, ['ndr', 'rto', 'rto initiated', 'rto delivered', 'cancelled'])) {
+                    } elseif (str_starts_with($s, 'rto') || in_array($s, ['ndr', 'action_required', 'undelivered']) || str_starts_with($s, 'cancel')) {
                         $progress = 75;
                         $step1 = true; $step2 = true; $step3 = true;
                         $isException = true;

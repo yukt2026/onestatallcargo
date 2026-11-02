@@ -34,15 +34,27 @@
         <!-- Status Tabs (URL Query Preserving) -->
         @php
             $currentStatus = request('status', 'new');
-            $counts = [
-                'new' => \App\Models\Shipment::where('user_id', Auth::id())->whereIn('status', ['new', 'Manifested', 'Booked', 'booked', 'New'])->count(),
-                'pickups' => \App\Models\Shipment::where('user_id', Auth::id())->whereIn('status', ['pickup_scheduled', 'Pickup Scheduled', 'pickups'])->count(),
-                'transit' => \App\Models\Shipment::where('user_id', Auth::id())->whereIn('status', ['in_transit', 'In Transit', 'transit'])->count(),
-                'delivered' => \App\Models\Shipment::where('user_id', Auth::id())->whereIn('status', ['delivered', 'Delivered'])->count(),
-                'rto' => \App\Models\Shipment::where('user_id', Auth::id())->whereIn('status', ['rto', 'RTO'])->count(),
-                'cancelled' => \App\Models\Shipment::where('user_id', Auth::id())->whereIn('status', ['cancelled', 'Cancelled'])->count(),
-                'all' => \App\Models\Shipment::where('user_id', Auth::id())->count(),
-            ];
+            if (!isset($counts) || empty($counts)) {
+                $userShipments = \App\Models\Shipment::where('user_id', Auth::id());
+                $counts = [
+                    'new' => (clone $userShipments)->whereIn('status', ['new', 'New', 'Manifested', 'manifested', 'Booked', 'booked', 'pending', 'new order'])->count(),
+                    'pickups' => (clone $userShipments)->where(function($q) {
+                        $q->where('status', 'LIKE', 'pickup%')->orWhere('status', 'LIKE', 'Pickup%');
+                    })->count(),
+                    'transit' => (clone $userShipments)->where(function($q) {
+                        $q->whereIn('status', ['in_transit', 'In Transit', 'transit', 'Transit', 'In-Transit', 'received', 'Received', 'out_for_delivery', 'Out for Delivery', 'ofd', 'OFD'])
+                          ->orWhere('status', 'LIKE', 'out for delivery%')->orWhere('status', 'LIKE', 'Out for Delivery%');
+                    })->count(),
+                    'delivered' => (clone $userShipments)->whereIn('status', ['delivered', 'Delivered', 'DELIVERED'])->count(),
+                    'rto' => (clone $userShipments)->where(function($q) {
+                        $q->where('status', 'LIKE', 'RTO%')->orWhere('status', 'LIKE', 'rto%');
+                    })->count(),
+                    'cancelled' => (clone $userShipments)->where(function($q) {
+                        $q->where('status', 'LIKE', 'cancel%')->orWhere('status', 'LIKE', 'Cancel%');
+                    })->count(),
+                    'all' => (clone $userShipments)->count(),
+                ];
+            }
 
             $kycRecord = \App\Models\Kyc::where('user_id', Auth::id())->first();
             $isKycApproved = $kycRecord && $kycRecord->status === 'approved';
@@ -154,18 +166,44 @@
         <div class="overflow-x-auto min-h-[300px] pb-28 relative">
             
             <!-- Floating Bulk Selection Bar -->
-            <div x-show="selectedIds.length > 0" x-transition class="sticky top-0 z-30 bg-[#1e1b4b] text-white px-4 py-2.5 flex flex-col sm:flex-row items-center justify-between text-xs font-bold shadow-lg gap-2 sm:gap-0">
+            <div x-show="selectedIds.length > 0" x-transition class="sticky top-0 z-30 bg-[#1e1b4b] text-white px-4 py-2.5 flex flex-col sm:flex-row items-center justify-between text-xs font-bold shadow-lg gap-2 sm:gap-0 rounded-xl mb-3">
                 <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
                     <span class="bg-[#4338ca] px-2.5 py-0.5 rounded-full text-[11px]" x-text="selectedIds.length + ' selected'"></span>
-                    <span>Selected Orders Actions</span>
+                    <span>Selected Orders Actions:</span>
                 </div>
-                <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-                    <form action="{{ route('seller.shipments.bulk-cancel') }}" method="POST" onsubmit="return confirm('Cancel selected orders?');" class="inline">
+                <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start flex-wrap">
+                    <!-- Bulk Print Slips (opens in new tab) -->
+                    <form action="{{ route('seller.shipments.bulk-print') }}" method="POST" target="_blank" class="inline">
                         @csrf
                         <input type="hidden" name="ids" :value="selectedIds.join(',')">
-                        <button type="submit" class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition">Bulk Cancel</button>
+                        <button type="submit" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm">
+                            <i class="fa-solid fa-print text-[11px]"></i>
+                            <span>Print Slips (<span x-text="selectedIds.length"></span>)</span>
+                        </button>
                     </form>
-                    <button type="button" @click="selectedIds = []" class="text-gray-300 hover:text-white text-xs underline">Deselect All</button>
+
+                    <!-- Bulk Download PDF -->
+                    <form action="{{ route('seller.shipments.bulk-print') }}" method="POST" class="inline">
+                        @csrf
+                        <input type="hidden" name="ids" :value="selectedIds.join(',')">
+                        <input type="hidden" name="download" value="pdf">
+                        <button type="submit" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm">
+                            <i class="fa-solid fa-file-pdf text-[11px]"></i>
+                            <span>Download PDF</span>
+                        </button>
+                    </form>
+
+                    <!-- Bulk Cancel -->
+                    <form action="{{ route('seller.shipments.bulk-cancel') }}" method="POST" onsubmit="return confirm('Cancel selected orders? Amount will be refunded to wallet.');" class="inline">
+                        @csrf
+                        <input type="hidden" name="ids" :value="selectedIds.join(',')">
+                        <button type="submit" class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm">
+                            <i class="fa-solid fa-ban text-[11px]"></i>
+                            <span>Bulk Cancel</span>
+                        </button>
+                    </form>
+
+                    <button type="button" @click="selectedIds = []" class="text-gray-300 hover:text-white text-xs underline ml-1">Deselect All</button>
                 </div>
             </div>
 
@@ -225,22 +263,28 @@
                             <!-- STATUS -->
                             <td class="px-3 py-4 align-top">
                                 @php
-                                    $st = strtolower($shipment->status);
+                                    $st = strtolower(trim($shipment->status));
                                 @endphp
-                                @if(in_array($st, ['new', 'manifested', 'booked']))
-                                    <span class="px-2 py-1 rounded-md text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200">Manifested</span>
-                                @elseif(in_array($st, ['pickup_scheduled', 'pickups']))
-                                    <span class="px-2 py-1 rounded-md text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200">Pickup Scheduled</span>
-                                @elseif(in_array($st, ['in_transit', 'transit']))
+                                @if(in_array($st, ['new', 'manifested', 'booked', 'pending', 'new order']))
+                                    <span class="px-2 py-1 rounded-md text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200">{{ ucwords(str_replace('_', ' ', $shipment->status)) }}</span>
+                                @elseif(str_starts_with($st, 'pickup') || in_array($st, ['pickup_scheduled', 'pickups', 'pickup pending']))
+                                    <span class="px-2 py-1 rounded-md text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200">{{ ucwords(str_replace('_', ' ', $shipment->status)) }}</span>
+                                @elseif(in_array($st, ['out_for_delivery', 'out for delivery', 'ofd']))
+                                    <span class="px-2 py-1 rounded-md text-[10px] font-extrabold bg-cyan-50 text-cyan-700 border border-cyan-200">Out for Delivery</span>
+                                @elseif(in_array($st, ['in_transit', 'transit', 'in transit', 'in-transit', 'received']))
                                     <span class="px-2 py-1 rounded-md text-[10px] font-extrabold bg-purple-50 text-purple-700 border border-purple-200">In Transit</span>
                                 @elseif($st === 'delivered')
                                     <span class="px-2 py-1 rounded-md text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">Delivered</span>
-                                @elseif($st === 'rto')
-                                    <span class="px-2 py-1 rounded-md text-[10px] font-extrabold bg-orange-50 text-orange-700 border border-orange-200">RTO</span>
-                                @elseif($st === 'cancelled')
+                                @elseif(str_starts_with($st, 'rto') || in_array($st, ['rto', 'rto delivered', 'rto initiated', 'rto in-transit', 'rto in transit']))
+                                    <span class="px-2 py-1 rounded-md text-[10px] font-extrabold bg-orange-50 text-orange-700 border border-orange-200">{{ ucwords(str_replace('_', ' ', $shipment->status)) }}</span>
+                                @elseif(in_array($st, ['ndr', 'action_required', 'action required', 'undelivered']))
+                                    <span class="px-2 py-1 rounded-md text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200">NDR</span>
+                                @elseif(in_array($st, ['lost', 'damaged']))
+                                    <span class="px-2 py-1 rounded-md text-[10px] font-extrabold bg-red-50 text-red-700 border border-red-200">{{ ucfirst($shipment->status) }}</span>
+                                @elseif(str_starts_with($st, 'cancel') || $st === 'cancelled')
                                     <span class="px-2 py-1 rounded-md text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200">Cancelled</span>
                                 @else
-                                    <span class="px-2 py-1 rounded-md text-[10px] font-extrabold bg-gray-50 text-gray-700 border border-gray-200">{{ ucfirst($shipment->status) }}</span>
+                                    <span class="px-2 py-1 rounded-md text-[10px] font-extrabold bg-gray-50 text-gray-700 border border-gray-200">{{ ucwords(str_replace('_', ' ', $shipment->status)) }}</span>
                                 @endif
                             </td>
 
@@ -271,9 +315,9 @@
                                     <span class="text-[9px] font-bold px-2 py-0.5 rounded {{ $shipment->is_cod ? 'bg-amber-100 text-amber-800' : 'bg-emerald-50 text-emerald-700 border border-emerald-200' }}">
                                         {{ $shipment->is_cod ? 'COD' : 'Prepaid' }}
                                     </span>
-                                    @if(($shipment->invoice_value ?? 0) > 50000)
+                                    {{-- @if(($shipment->invoice_value ?? 0) > 50000)
                                     <span class="text-[9px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-200">Add E-Way Bill</span>
-                                    @endif
+                                    @endif --}}
                                 </div>
                             </td>
 
@@ -287,9 +331,10 @@
                                 <div class="flex items-center justify-end gap-2">
                                     @if($isKycApproved)
                                         @php
-                                            $stLower = strtolower($shipment->status);
+                                            $stLower = strtolower(trim($shipment->status));
+                                            $isCancellable = in_array($stLower, ['new', 'manifested', 'booked', 'pickup_scheduled', 'pickup scheduled', 'pending', 'new order', 'pickup pending', 'pickup_pending']) || str_starts_with($stLower, 'pickup');
                                         @endphp
-                                        @if(in_array($stLower, ['new', 'manifested', 'booked']))
+                                        @if(in_array($stLower, ['new', 'manifested', 'booked', 'pending', 'new order']))
                                             <button type="button" @click.prevent="openCourierSelection({
                                                 id: {{ $shipment->id }},
                                                 awb_number: '{{ $shipment->awb_number }}',
@@ -301,7 +346,7 @@
                                             })" class="px-3 py-1.5 bg-[#1e1b4b] hover:bg-black text-white text-xs font-bold rounded-lg shadow-sm transition">
                                                 Ship Now
                                             </button>
-                                        @elseif($stLower === 'cancelled')
+                                        @elseif(str_starts_with($stLower, 'cancel') || $stLower === 'cancelled')
                                             <span class="px-3 py-1.5 bg-rose-50 text-rose-700 text-xs font-bold rounded-lg shadow-sm border border-rose-200 inline-flex items-center">
                                                 <i class="fa-solid fa-ban mr-1"></i> Cancelled
                                             </span>
@@ -309,19 +354,42 @@
                                             <span class="px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-lg shadow-sm border border-emerald-200 inline-flex items-center">
                                                 <i class="fa-solid fa-circle-check mr-1"></i> Delivered
                                             </span>
-                                        @elseif($stLower === 'rto')
+                                        @elseif(str_starts_with($stLower, 'rto') || in_array($stLower, ['rto', 'rto delivered', 'rto initiated', 'rto in-transit', 'rto in transit']))
                                             <span class="px-3 py-1.5 bg-orange-50 text-orange-700 text-xs font-bold rounded-lg shadow-sm border border-orange-200 inline-flex items-center">
-                                                <i class="fa-solid fa-rotate-left mr-1"></i> RTO
+                                                <i class="fa-solid fa-rotate-left mr-1"></i> {{ ucwords(str_replace('_', ' ', $shipment->status)) }}
+                                            </span>
+                                        @elseif(in_array($stLower, ['out_for_delivery', 'out for delivery', 'ofd']))
+                                            <span class="px-2.5 py-1.5 bg-cyan-50 text-cyan-700 text-xs font-bold rounded-lg shadow-sm border border-cyan-200 inline-flex items-center">
+                                                <i class="fa-solid fa-motorcycle mr-1"></i> Out for Delivery
+                                            </span>
+                                        @elseif(in_array($stLower, ['ndr', 'action_required', 'action required', 'undelivered']))
+                                            <span class="px-2.5 py-1.5 bg-rose-50 text-rose-700 text-xs font-bold rounded-lg shadow-sm border border-rose-200 inline-flex items-center">
+                                                <i class="fa-solid fa-triangle-exclamation mr-1"></i> NDR
+                                            </span>
+                                        @elseif(str_starts_with($stLower, 'pickup') || in_array($stLower, ['pickup_scheduled', 'pickup scheduled', 'pickups', 'pickup_assigned', 'pickup pending', 'pickup_pending']))
+                                            <span class="px-2.5 py-1.5 bg-amber-50 text-amber-700 text-xs font-bold rounded-lg shadow-sm border border-amber-200 inline-flex items-center">
+                                                <i class="fa-solid fa-truck-pickup mr-1"></i> {{ ucwords(str_replace('_', ' ', $shipment->status)) }}
                                             </span>
                                         @else
-                                            <button type="button" disabled class="px-3 py-1.5 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg shadow-sm cursor-not-allowed border border-emerald-200">
-                                                <i class="fa-solid fa-check mr-1"></i> Shipped
+                                            <button type="button" disabled class="px-3 py-1.5 bg-purple-50 text-purple-800 text-xs font-bold rounded-lg shadow-sm cursor-not-allowed border border-purple-200">
+                                                <i class="fa-solid fa-truck mr-1"></i> In Transit
                                             </button>
                                         @endif
                                     @else
                                         <a href="{{ route('seller.settings') }}?view=kyc" onclick="alert('KYC Verification Required!\n\nPlease complete and get your KYC approved before shipping orders.');" class="px-3 py-1.5 bg-gray-400 hover:bg-gray-600 text-white text-xs font-bold rounded-lg shadow-sm transition">
                                             Ship Now
                                         </a>
+                                    @endif
+
+                                    {{-- Quick Direct Cancel Button --}}
+                                    @if($isCancellable)
+                                        <form action="{{ route('seller.shipments.cancel', $shipment->id) }}" method="POST" onsubmit="return confirm('Cancel order {{ $shipment->awb_number }}? Amount will be refunded to wallet.');" class="inline">
+                                            @csrf
+                                            <button type="submit" title="Cancel Order" class="px-2.5 py-1.5 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white rounded-lg border border-red-200 text-xs font-bold shadow-sm transition inline-flex items-center gap-1">
+                                                <i class="fa-solid fa-ban text-[11px]"></i>
+                                                <span>Cancel</span>
+                                            </button>
+                                        </form>
                                     @endif
 
                                     <button @click="openMenu = !openMenu" class="w-7 h-7 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center text-gray-600 text-xs shadow-sm">
@@ -337,15 +405,15 @@
                                             <a href="{{ route('seller.settings') }}?view=kyc" onclick="alert('KYC Verification Required!\n\nPlease complete and get your KYC approved.');" class="block px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">Edit Order</a>
                                         @endif
 
-                                        @if(in_array(strtolower($shipment->status), ['new', 'manifested', 'booked']))
+                                        @if($isCancellable)
                                         <form action="{{ route('seller.shipments.cancel', $shipment->id) }}" method="POST" onsubmit="return confirm('Cancel this order?');">
                                             @csrf
-                                            <button type="submit" class="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">Cancel Order</button>
+                                            <button type="submit" class="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-1.5"><i class="fa-solid fa-ban"></i> Cancel Order</button>
                                         </form>
                                         @endif
                                         <a href="{{ route('seller.book') }}?clone={{ $shipment->id }}" class="block px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">Clone Order</a>
                                         <a href="{{ route('seller.invoice', $shipment->awb_number) }}" target="_blank" class="block px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">Download Invoice</a>
-                                        <a href="#" @click.prevent="openEway('{{ $shipment->awb_number }}'); openMenu = false" class="block px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">Update E-way Bill</a>
+                                        {{-- <a href="#" @click.prevent="openEway('{{ $shipment->awb_number }}'); openMenu = false" class="block px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">Update E-way Bill</a> --}}
                                         <a href="#" @click.prevent="openComm('{{ $shipment->awb_number }}'); openMenu = false" class="block px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">View Communication</a>
                                     </div>
                                 </div>
@@ -466,8 +534,16 @@
                             <i class="fa-solid fa-ban text-rose-500"></i> Order Cancelled
                         </span>
                     </template>
+                    <template x-if="['new', 'manifested', 'booked', 'pickup scheduled', 'pickup_scheduled', 'pending', 'new order'].includes((activeOrder.status || '').toLowerCase())">
+                        <form :action="'{{ url('seller/shipments') }}/' + activeOrder.id + '/cancel'" method="POST" onsubmit="return confirm('Are you sure you want to cancel this order? Freight charge will be refunded to wallet.');" class="inline">
+                            @csrf
+                            <button type="submit" class="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-1.5 shadow-md">
+                                <i class="fa-solid fa-ban"></i> Cancel Order
+                            </button>
+                        </form>
+                    </template>
                     <template x-if="(activeOrder.status || '').toLowerCase() !== 'cancelled'">
-                        <a :href="`{{ url('seller/shipment') }}//label`" target="_blank" class="px-4 py-2 text-xs font-bold text-white bg-[#1e1b4b] hover:bg-black rounded-xl transition flex items-center gap-1.5 shadow-md">
+                        <a :href="'{{ url('seller/shipments/label') }}/' + activeOrder.awb_number" target="_blank" class="px-4 py-2 text-xs font-bold text-white bg-[#1e1b4b] hover:bg-black rounded-xl transition flex items-center gap-1.5 shadow-md">
                             <i class="fa-solid fa-print"></i> Print Label
                         </a>
                     </template>
@@ -574,7 +650,7 @@
         </div>
     </div>
 
-    <!-- Update E-Way Bill Modal -->
+    {{-- Update E-Way Bill Modal
     <div x-show="showEwayModal" style="display: none;" class="fixed inset-0 z-[100] overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
             <div x-show="showEwayModal" x-transition.opacity class="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-75" @click="showEwayModal = false"></div>
@@ -602,6 +678,7 @@
             </div>
         </div>
     </div>
+    --}}
 
     <!-- View Communication Modal -->
     <div x-show="showCommModal" style="display: none;" class="fixed inset-0 z-[100] overflow-y-auto">

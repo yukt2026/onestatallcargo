@@ -54,5 +54,10 @@ class AdminSettingController extends Controller {
         $setting->delete();
         return redirect()->route('admin.settings.index')->with('success', 'Setting deleted successfully.');
     }
+
+    public function show(Setting $setting)
+    {
+        return redirect()->route('admin.settings.edit', $setting->id);
+    }
 }
 

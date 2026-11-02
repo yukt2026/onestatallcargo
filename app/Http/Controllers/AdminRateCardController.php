@@ -270,4 +270,15 @@ class AdminRateCardController extends Controller {
             ], 400);
         }
     }
+
+    public function destroy($id)
+    {
+        $rateCard = RateCard::findOrFail($id);
+        if ($rateCard->is_active) {
+            return back()->with('error', 'Cannot delete an active rate card. Please activate another rate card first.');
+        }
+        $rateCard->zones()->delete();
+        $rateCard->delete();
+        return back()->with('success', 'Rate card deleted successfully.');
+    }
 }

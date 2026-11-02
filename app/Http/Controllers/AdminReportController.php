@@ -22,8 +22,11 @@ class AdminReportController extends Controller
             ->first();
             
         $pendingCod = Shipment::where('is_cod', true)
-            ->where('status', 'Delivered')
-            ->sum('invoice_value');
+            ->whereIn('status', ['Delivered', 'delivered', 'DELIVERED'])
+            ->where(function($q) {
+                $q->whereNull('cod_remitted')->orWhere('cod_remitted', false);
+            })
+            ->sum(DB::raw('COALESCE(cod_amount, invoice_value, 0)'));
 
         return view('admin.reports.index', compact('dailyBookings', 'topSeller', 'pendingCod'));
     }
@@ -60,7 +63,7 @@ class AdminReportController extends Controller
                         $s->receiver_name,
                         $s->receiver_phone,
                         $s->delivery_city,
-                        'N/A', // delivery_state not directly in table
+                        $s->delivery_state ?? 'N/A',
                         $s->delivery_pincode,
                         $s->is_cod ? 'COD' : 'Prepaid',
                         $s->invoice_value,

@@ -35,6 +35,9 @@
             <div class="text-right">
                 <span class="font-bold text-gray-500">Date:</span> <span class="font-bold text-gray-900">{{ $shipment->created_at->format('d M Y') }}</span><br>
                 <span class="font-bold text-gray-500">Payment Mode:</span> <span class="font-bold text-gray-900">{{ $shipment->is_cod ? 'COD' : 'Prepaid' }}</span>
+                @if(!empty($shipment->eway_bill_number))
+                <br><span class="font-bold text-gray-500">E-Way Bill:</span> <span class="font-black text-gray-900 font-mono">{{ $shipment->eway_bill_number }}</span>
+                @endif
             </div>
         </div>
 
@@ -43,16 +46,16 @@
             <!-- Shipper -->
             <div class="border border-gray-300 p-4 rounded-lg bg-gray-50/50">
                 <h3 class="text-xs font-extrabold text-gray-600 uppercase tracking-wider border-b border-gray-200 pb-2 mb-2">Shipper (Sender)</h3>
-                <p class="font-black text-base text-gray-900">{{ optional($shipment->user)->company_name ?? optional($shipment->user)->name ?? (Auth::user()->company_name ?? Auth::user()->name) }}</p>
-                <p class="text-xs text-gray-700 mt-1">{{ $shipment->pickup_address ?? 'Origin Hub' }}<br>{{ $shipment->pickup_city ?? '' }} - {{ $shipment->pickup_pincode ?? '' }}</p>
-                <p class="text-xs text-gray-700 mt-1 font-semibold">Ph: {{ optional($shipment->user)->phone ?? (Auth::user()->phone ?? 'N/A') }}</p>
+                <p class="font-black text-base text-gray-900">{{ !empty(trim($shipment->pickup_name ?? '')) ? $shipment->pickup_name : (optional($shipment->user)->company_name ?: optional($shipment->user)->name ?: (Auth::user()->company_name ?? Auth::user()->name ?? 'OneStall Shipper')) }}</p>
+                <p class="text-xs text-gray-700 mt-1">{{ !empty(trim($shipment->pickup_address ?? '')) ? $shipment->pickup_address : 'Origin Hub' }}<br>{{ $shipment->pickup_city ?? '' }}{{ !empty($shipment->pickup_state) ? ', ' . $shipment->pickup_state : (!empty(optional($shipment->user)->company_state) ? ', ' . optional($shipment->user)->company_state : '') }} - {{ $shipment->pickup_pincode ?? '' }}</p>
+                <p class="text-xs text-gray-700 mt-1 font-semibold">Ph: {{ !empty(trim($shipment->pickup_phone ?? '')) ? $shipment->pickup_phone : (optional($shipment->user)->phone ?: (Auth::user()->phone ?? 'N/A')) }}</p>
             </div>
             
             <!-- Consignee -->
             <div class="border border-gray-300 p-4 rounded-lg bg-gray-50/50">
                 <h3 class="text-xs font-extrabold text-gray-600 uppercase tracking-wider border-b border-gray-200 pb-2 mb-2">Consignee (Recipient)</h3>
                 <p class="font-black text-base text-gray-900">{{ $shipment->receiver_name }}</p>
-                <p class="text-xs text-gray-700 mt-1">{{ $shipment->delivery_address }}<br>{{ $shipment->delivery_city }} - {{ $shipment->delivery_pincode }}</p>
+                <p class="text-xs text-gray-700 mt-1">{{ $shipment->delivery_address }}<br>{{ $shipment->delivery_city }}{{ !empty($shipment->delivery_state) ? ', ' . $shipment->delivery_state : '' }} - {{ $shipment->delivery_pincode }}</p>
                 @if(!empty($shipment->destination_country))
                 <p class="text-xs text-gray-700 mt-1 font-bold">Country: {{ $shipment->destination_country }}</p>
                 @endif

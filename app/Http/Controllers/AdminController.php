@@ -15,22 +15,22 @@ class AdminController extends Controller
         // Real Data
         $yesterday = today()->subDay();
         $yesterdayShipments = Shipment::whereDate('created_at', $yesterday)->count();
-        $yesterdayDelivered = Shipment::where('status', 'Delivered')->whereDate('updated_at', $yesterday)->count();
-        $yesterdayRto = Shipment::whereIn('status', ['RTO Initiated', 'RTO Delivered'])->whereDate('updated_at', $yesterday)->count();
-        $yesterdayNdr = Shipment::where('status', 'NDR')->whereDate('updated_at', $yesterday)->count();
+        $yesterdayDelivered = Shipment::whereIn('status', ['Delivered', 'delivered', 'DELIVERED'])->whereDate('updated_at', $yesterday)->count();
+        $yesterdayRto = Shipment::where(function($q) { $q->where('status', 'LIKE', 'RTO%')->orWhere('status', 'LIKE', 'rto%'); })->whereDate('updated_at', $yesterday)->count();
+        $yesterdayNdr = Shipment::whereIn('status', ['NDR', 'ndr', 'Action Required', 'Undelivered'])->whereDate('updated_at', $yesterday)->count();
         $yesterdayRevenue = WalletTransaction::where('type', 'debit')->where('status', '!=', 'failed')->whereDate('created_at', $yesterday)->sum('amount');
-        $yesterdaySettlements = Shipment::where('is_cod', true)->where('status', 'Delivered')->where('cod_remitted', true)->whereDate('updated_at', $yesterday)->sum(DB::raw('COALESCE(cod_amount, invoice_value, 0)'));
+        $yesterdaySettlements = Shipment::where('is_cod', true)->whereIn('status', ['Delivered', 'delivered', 'DELIVERED'])->where('cod_remitted', true)->whereDate('updated_at', $yesterday)->sum(DB::raw('COALESCE(cod_amount, invoice_value, 0)'));
         
         $totalShipments = Shipment::count();
-        $inTransit = Shipment::whereIn('status', ['Manifested', 'In Transit', 'Received', 'Out for Delivery'])->count();
-        $outForDelivery = Shipment::where('status', 'Out for Delivery')->count();
-        $deliveredToday = Shipment::where('status', 'Delivered')->whereDate('updated_at', today())->count();
-        $pendingPickups = Shipment::whereIn('status', ['Pending', 'Pickup Scheduled'])->count();
-        $ndrCount = Shipment::where('status', 'NDR')->count();
-        $rtoCount = Shipment::whereIn('status', ['RTO Initiated', 'RTO Delivered'])->count();
+        $inTransit = Shipment::whereIn('status', ['In Transit', 'in_transit', 'transit', 'Transit', 'In-Transit', 'Received', 'Out for Delivery', 'out_for_delivery'])->count();
+        $outForDelivery = Shipment::whereIn('status', ['Out for Delivery', 'out_for_delivery', 'ofd', 'OFD'])->count();
+        $deliveredToday = Shipment::whereIn('status', ['Delivered', 'delivered', 'DELIVERED'])->whereDate('updated_at', today())->count();
+        $pendingPickups = Shipment::whereIn('status', ['Pending', 'pending', 'Pickup Scheduled', 'pickup_scheduled', 'Manifested', 'manifested', 'Booked', 'booked', 'new', 'New', 'new order'])->count();
+        $ndrCount = Shipment::whereIn('status', ['NDR', 'ndr', 'Action Required', 'Undelivered'])->count();
+        $rtoCount = Shipment::where(function($q) { $q->where('status', 'LIKE', 'RTO%')->orWhere('status', 'LIKE', 'rto%'); })->count();
         
         $totalRevenue = WalletTransaction::where('type', 'debit')->where('status', '!=', 'failed')->sum('amount');
-        $totalSettlements = Shipment::where('is_cod', true)->where('status', 'Delivered')->where('cod_remitted', true)->sum(DB::raw('COALESCE(cod_amount, invoice_value, 0)'));
+        $totalSettlements = Shipment::where('is_cod', true)->whereIn('status', ['Delivered', 'delivered', 'DELIVERED'])->where('cod_remitted', true)->sum(DB::raw('COALESCE(cod_amount, invoice_value, 0)'));
 
         // Couriers performance
         $couriers = DB::table('shipments')

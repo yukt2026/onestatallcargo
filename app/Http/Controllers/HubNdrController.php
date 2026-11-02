@@ -31,7 +31,7 @@ class HubNdrController extends Controller
     {
         $scope = $this->getAuthScope();
         
-        $shipmentsQuery = Shipment::where('status', 'NDR');
+        $shipmentsQuery = Shipment::whereIn('status', ['NDR', 'ndr', 'Action Required', 'Undelivered']);
         if ($scope['franchise_id']) {
             $franchise = \App\Models\Franchise::find($scope['franchise_id']);
             $pincodes = $franchise ? (is_array($franchise->serviceable_pincodes) ? $franchise->serviceable_pincodes : (json_decode($franchise->serviceable_pincodes, true) ?? [])) : [];

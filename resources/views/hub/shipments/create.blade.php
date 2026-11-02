@@ -49,6 +49,7 @@
     $initialType = old('shipment_type', isset($shipment) ? $shipment->shipment_type : 'B2C');
     
     $warehouses = \App\Models\Warehouse::where('user_id', Auth::id())->get();
+    $defaultWh = $warehouses->where('is_default', true)->first() ?? $warehouses->first();
 @endphp
 
 <div class="max-w-[1200px] mx-auto pb-24" x-data="bookingForm()">
@@ -92,17 +93,27 @@
         
         <!-- Custom Tabs mimicking BigShip -->
         <div class="flex border-b border-gray-200 mb-6 bg-transparent">
-            <button type="button" @click="shipmentType = 'B2C'" :class="shipmentType !== 'International' ? 'text-indigo-900 border-b-2 border-indigo-900 font-bold' : 'text-gray-500 font-semibold'" class="px-6 py-3 text-[13px] transition">
-                Domestic
+            <button type="button" @click="shipmentType = 'B2C'" :class="shipmentType === 'B2C' ? 'text-indigo-900 border-b-2 border-indigo-900 font-bold' : 'text-gray-500 font-semibold'" class="px-6 py-3 text-[13px] transition">
+                <i class="fa-solid fa-box mr-1 text-emerald-600"></i> Domestic (B2C)
+            </button>
+            <button type="button" @click="shipmentType = 'B2B'" :class="shipmentType === 'B2B' ? 'text-indigo-900 border-b-2 border-indigo-900 font-bold' : 'text-gray-500 font-semibold'" class="px-6 py-3 text-[13px] transition">
+                <i class="fa-solid fa-truck-moving mr-1 text-blue-600"></i> B2B Cargo & Freight
             </button>
             <button type="button" @click="shipmentType = 'International'; paymentMode = 'Prepaid'" :class="shipmentType === 'International' ? 'text-indigo-900 border-b-2 border-indigo-900 font-bold' : 'text-gray-500 font-semibold'" class="px-6 py-3 text-[13px] transition">
-                International
+                <i class="fa-solid fa-globe mr-1 text-purple-600"></i> International
             </button>
         </div>
         
         <div class="bg-white rounded p-6 shadow-sm mb-6">
-            <div class="flex justify-between items-center mb-8">
-                <div class="text-red-500 text-[11px] font-semibold">*All Fields Required</div>
+            <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="text-red-500 text-[11px] font-semibold">*All Fields Required</div>
+                    <div class="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-950">
+                        <i class="fa-solid fa-wallet text-amber-500"></i>
+                        <span>Wallet Balance: &#8377;{{ number_format(Auth::user()->wallet_balance ?? 0, 2) }}</span>
+                        <a href="{{ route('hub.wallet.index') }}" target="_blank" class="underline text-indigo-700 hover:text-indigo-900 ml-1 font-extrabold">+ Recharge</a>
+                    </div>
+                </div>
                 <a href="{{ route('hub.bulk') }}" class="bg-[#10b981] hover:bg-[#059669] text-white text-[12px] font-bold px-4 py-2 rounded shadow-sm transition">
                     Bulk Order
                 </a>
@@ -198,6 +209,24 @@
                     <div x-show="shipmentType === 'International'" class="pt-2 transition">
                         <label class="block text-[11px] font-semibold text-indigo-900 mb-1">HS Code</label>
                         <input type="text" name="hs_code" placeholder="e.g. 6109.10" class="w-full px-3 py-2 border border-indigo-200 bg-indigo-50 focus:border-indigo-500 rounded text-xs outline-none text-gray-700 shadow-sm">
+                    </div>
+
+                    <!-- B2B Cargo Fields -->
+                    <div x-show="shipmentType === 'B2B'" class="pt-2 transition">
+                        <label class="block text-[11px] font-semibold text-indigo-900 mb-1">Vehicle / Load Type <span class="text-red-500">*</span></label>
+                        <select name="vehicle_type" class="w-full px-3 py-2 border border-indigo-200 bg-indigo-50 focus:border-indigo-500 rounded text-xs outline-none text-gray-700 shadow-sm font-semibold">
+                            <option value="PTL" {{ old('vehicle_type', $shipment->vehicle_type ?? '') == 'PTL' ? 'selected' : '' }}>PTL (Part Truck Load - Commercial Freight)</option>
+                            <option value="FTL" {{ old('vehicle_type', $shipment->vehicle_type ?? '') == 'FTL' ? 'selected' : '' }}>FTL (Full Truck Load)</option>
+                            <option value="Tata Ace" {{ old('vehicle_type', $shipment->vehicle_type ?? '') == 'Tata Ace' ? 'selected' : '' }}>Tata Ace (1.5 Ton Mini Truck)</option>
+                            <option value="Pickup 8ft" {{ old('vehicle_type', $shipment->vehicle_type ?? '') == 'Pickup 8ft' ? 'selected' : '' }}>Pickup 8ft (2.0 Ton)</option>
+                            <option value="14ft Eicher" {{ old('vehicle_type', $shipment->vehicle_type ?? '') == '14ft Eicher' ? 'selected' : '' }}>14ft Eicher (4.0 Ton)</option>
+                            <option value="19ft Truck" {{ old('vehicle_type', $shipment->vehicle_type ?? '') == '19ft Truck' ? 'selected' : '' }}>19ft Truck (7.0 Ton)</option>
+                            <option value="32ft Container" {{ old('vehicle_type', $shipment->vehicle_type ?? '') == '32ft Container' ? 'selected' : '' }}>32ft Multi-Axle Container</option>
+                        </select>
+                    </div>
+                    <div x-show="shipmentType === 'B2B'" class="pt-2 transition">
+                        <label class="block text-[11px] font-semibold text-indigo-900 mb-1">E-Way Bill Number</label>
+                        <input type="text" name="eway_bill_number" value="{{ old('eway_bill_number', $shipment->eway_bill_number ?? '') }}" placeholder="12-digit E-Way Bill (e.g. 123456789012)" maxlength="50" class="w-full px-3 py-2 border border-indigo-200 bg-indigo-50 focus:border-indigo-500 rounded text-xs outline-none text-gray-700 shadow-sm">
                     </div>
                 </div>
             </div>
@@ -345,7 +374,7 @@
             <div class="pl-2 md:pl-10">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[250px] overflow-y-auto pr-2 mb-4">
                     <template x-for="wh in warehouseList" :key="wh.id">
-                        <label x-show="!warehouseSearch || (wh.name + ' ' + wh.city + ' ' + wh.pincode).toLowerCase().includes(warehouseSearch.toLowerCase())" class="border rounded p-4 cursor-pointer transition hover:border-[#1e1b4b] flex items-center gap-4" :class="selectedWarehouse == wh.id ? 'border-[#1e1b4b] bg-[#f8f9ff]' : 'border-gray-200'">
+                        <label @click="selectWarehouseItem(wh)" x-show="!warehouseSearch || (wh.name + ' ' + wh.city + ' ' + wh.pincode).toLowerCase().includes(warehouseSearch.toLowerCase())" class="border rounded p-4 cursor-pointer transition hover:border-[#1e1b4b] flex items-center gap-4" :class="selectedWarehouse == wh.id ? 'border-[#1e1b4b] bg-[#f8f9ff]' : 'border-gray-200'">
                             <input type="radio" name="pickup_location" :value="wh.id" x-model="selectedWarehouse" class="hidden">
                             <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0" :class="selectedWarehouse == wh.id ? 'border-[#1e1b4b]' : 'border-gray-300'">
                                 <div class="w-2 h-2 bg-[#1e1b4b] rounded-full" x-show="selectedWarehouse == wh.id"></div>
@@ -365,11 +394,59 @@
                         </label>
                     </template>
                     <div x-show="warehouseList.length === 0" class="col-span-2 text-center py-6 text-sm text-gray-500 font-semibold bg-gray-50 rounded">
-                        No warehouses found. Please add a warehouse first.
+                        No warehouses found. Please add a warehouse or enter pickup details below.
                     </div>
                 </div>
 
-                <div class="flex items-center gap-2 py-4">
+                <!-- Explicit Pickup Details for This Shipment -->
+                <div class="p-4 bg-gray-50 rounded-xl border border-gray-200 mb-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3">
+                        <span class="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                            <i class="fa-solid fa-location-dot text-indigo-600"></i> Pickup / Shipper Address Details
+                        </span>
+                        <span class="text-[10px] text-gray-500 italic">Select from above or type new pickup address & mobile number</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-700 mb-1">Pickup / Shipper Name <span class="text-red-500">*</span></label>
+                            <input type="text" name="pickup_name" x-model="pickupName" placeholder="e.g. Sagar Restaurant" class="w-full px-3 py-1.5 border border-gray-300 rounded text-xs outline-none focus:border-indigo-500 bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-700 mb-1">Pickup Contact Mobile (10 Digits) <span class="text-red-500">*</span></label>
+                            <input type="tel" name="pickup_phone" x-model="pickupPhone" placeholder="e.g. 8789796492" maxlength="10" class="w-full px-3 py-1.5 border border-gray-300 rounded text-xs outline-none focus:border-indigo-500 bg-white">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="block text-[10px] font-bold text-gray-700 mb-1">Pickup Address (Shop / Street / Area) <span class="text-red-500">*</span></label>
+                        <textarea name="pickup_address" x-model="pickupAddress" rows="2" placeholder="e.g. Sagar Restaurant Gudedekote Road" class="w-full px-3 py-1.5 border border-gray-300 rounded text-xs outline-none focus:border-indigo-500 resize-none bg-white"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-700 mb-1">Pickup Pincode (6 Digits) <span class="text-red-500">*</span></label>
+                            <input type="text" name="pickup_pincode" x-model="pickupPincode" @input="fetchPickupPincode()" maxlength="6" placeholder="e.g. 583135" class="w-full px-3 py-1.5 border border-gray-300 rounded text-xs outline-none focus:border-indigo-500 bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-700 mb-1">City <span class="text-red-500">*</span></label>
+                            <input type="text" name="pickup_city" x-model="pickupCity" placeholder="City" class="w-full px-3 py-1.5 border border-gray-300 rounded text-xs outline-none focus:border-indigo-500 bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-700 mb-1">State <span class="text-red-500">*</span></label>
+                            <input type="text" name="pickup_state" x-model="pickupState" placeholder="State" class="w-full px-3 py-1.5 border border-gray-300 rounded text-xs outline-none focus:border-indigo-500 bg-white">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 mt-3 pt-2 border-t border-gray-200">
+                        <input type="checkbox" name="save_to_warehouses" value="1" id="saveWhCheck" class="w-3.5 h-3.5 text-indigo-600 rounded border-gray-300">
+                        <label for="saveWhCheck" class="text-[11px] font-semibold text-gray-700 cursor-pointer">
+                            Save this pickup address to my warehouses list for future orders
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 py-2">
                     <input type="checkbox" checked class="w-3.5 h-3.5 text-[#007bff] rounded border-gray-300">
                     <label class="text-[11px] italic font-semibold text-gray-600">Return address will be the same as pickup address</label>
                 </div>
@@ -463,13 +540,42 @@ function bookingForm() {
         deliveryState: '{{ old('delivery_state', $shipment->delivery_state ?? '') }}',
         warehouseList: {!! json_encode($warehouses) !!},
         selectedWarehouse: {{ $warehouses->where('is_default', true)->first()->id ?? ($warehouses->first()->id ?? 'null') }},
+        pickupName: '{{ old('pickup_name', $shipment->pickup_name ?? ($defaultWh->name ?? '')) }}',
+        pickupPhone: '{{ old('pickup_phone', $shipment->pickup_phone ?? ($defaultWh->phone ?? '')) }}',
+        pickupAddress: '{{ old('pickup_address', $shipment->pickup_address ?? ($defaultWh->address ?? '')) }}',
+        pickupPincode: '{{ old('pickup_pincode', $shipment->pickup_pincode ?? ($defaultWh->pincode ?? '')) }}',
+        pickupCity: '{{ old('pickup_city', $shipment->pickup_city ?? ($defaultWh->city ?? '')) }}',
+        pickupState: '{{ old('pickup_state', $shipment->pickup_state ?? ($defaultWh->state ?? '')) }}',
+        selectWarehouseItem(wh) {
+            this.selectedWarehouse = wh.id;
+            this.pickupName = wh.name || wh.contact_person || '';
+            this.pickupPhone = wh.phone || '';
+            this.pickupAddress = wh.address || '';
+            this.pickupCity = wh.city || '';
+            this.pickupState = wh.state || '';
+            this.pickupPincode = wh.pincode || '';
+        },
+        async fetchPickupPincode() {
+            if (this.pickupPincode && this.pickupPincode.length === 6) {
+                try {
+                    const res = await fetch('https://api.postalpincode.in/pincode/' + this.pickupPincode);
+                    const data = await res.json();
+                    if (data && data[0] && data[0].Status === 'Success') {
+                        this.pickupCity = data[0].PostOffice[0].District;
+                        this.pickupState = data[0].PostOffice[0].State;
+                    }
+                } catch(e) {
+                    console.error('Pickup pincode lookup error:', e);
+                }
+            }
+        },
         showAddWarehouseModal: false,
         quickWhLoading: false,
         quickWhError: '',
         quickWh: {
             name: '',
-            contact_person: '{{ Auth::user()->name }}',
-            phone: '{{ Auth::user()->phone }}',
+            contact_person: '',
+            phone: '',
             address: '',
             pincode: '',
             city: '',
@@ -479,8 +585,8 @@ function bookingForm() {
             this.quickWhError = '';
             this.quickWh = {
                 name: '',
-                contact_person: '{{ Auth::user()->name }}',
-                phone: '{{ Auth::user()->phone }}',
+                contact_person: '',
+                phone: '',
                 address: '',
                 pincode: '',
                 city: '',
@@ -518,7 +624,7 @@ function bookingForm() {
                 const data = await res.json();
                 if (res.ok && data.success && data.warehouse) {
                     this.warehouseList.unshift(data.warehouse);
-                    this.selectedWarehouse = data.warehouse.id;
+                    this.selectWarehouseItem(data.warehouse);
                     this.showAddWarehouseModal = false;
                 } else {
                     let msg = data.message || 'Failed to save warehouse';

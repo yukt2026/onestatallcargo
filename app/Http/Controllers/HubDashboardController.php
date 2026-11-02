@@ -92,11 +92,13 @@ class HubDashboardController extends Controller
 
         // --- DASHBOARD METRICS ---
         $totalBookings = (clone $shipmentsQuery)->count();
-        $pendingPickup = (clone $shipmentsQuery)->where('status', 'Pending')->count();
-        $outForDelivery = (clone $shipmentsQuery)->where('status', 'Out for Delivery')->count();
-        $delivered = (clone $shipmentsQuery)->where('status', 'Delivered')->count();
-        $ndr = (clone $shipmentsQuery)->where('status', 'NDR')->count();
-        $rto = (clone $shipmentsQuery)->where('status', 'RTO')->count();
+        $pendingPickup = (clone $shipmentsQuery)->whereIn('status', ['Pending', 'pending', 'Manifested', 'manifested', 'Booked', 'booked', 'Pickup Scheduled', 'pickup_scheduled', 'new', 'New', 'new order'])->count();
+        $outForDelivery = (clone $shipmentsQuery)->whereIn('status', ['Out for Delivery', 'out_for_delivery', 'ofd', 'OFD', 'Out For Delivery'])->count();
+        $delivered = (clone $shipmentsQuery)->whereIn('status', ['Delivered', 'delivered', 'DELIVERED'])->count();
+        $ndr = (clone $shipmentsQuery)->whereIn('status', ['NDR', 'ndr', 'Action Required', 'action_required', 'Undelivered', 'undelivered'])->count();
+        $rto = (clone $shipmentsQuery)->where(function($q) {
+            $q->where('status', 'LIKE', 'RTO%')->orWhere('status', 'LIKE', 'rto%');
+        })->count();
         
         // Accurate COD Pending: delivered COD parcels not yet remitted
         $codPending = (clone $shipmentsQuery)
@@ -220,7 +222,7 @@ class HubDashboardController extends Controller
 
         $bags = $bags->orderBy('created_at', 'desc')->take(20)->get();
 
-        return view('hub.bagging', compact('bags'));
+        return redirect()->route('hub.bagging.index');
     }
 
     public function createBag(Request $request)

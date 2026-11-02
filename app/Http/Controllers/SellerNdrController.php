@@ -18,13 +18,16 @@ class SellerNdrController extends Controller
         } elseif ($tab === 'action_taken') {
             $query->where('status', 'NDR')->whereNotNull('ndr_action');
         } elseif ($tab === 'delivered') {
-            $query->where('status', 'Delivered')->whereNotNull('ndr_action'); // Was NDR but now delivered
+            $query->whereIn('status', ['Delivered', 'delivered', 'DELIVERED'])->whereNotNull('ndr_action'); // Was NDR but now delivered
         } elseif ($tab === 'rto') {
-            $query->whereIn('status', ['RTO Initiated', 'RTO Delivered']);
+            $query->where(function($q) {
+                $q->where('status', 'LIKE', 'RTO%')->orWhere('status', 'LIKE', 'rto%');
+            });
         } elseif ($tab === 'all') {
             $query->where(function ($q) {
-                $q->where('status', 'NDR')
-                  ->orWhereIn('status', ['RTO Initiated', 'RTO Delivered']);
+                $q->whereIn('status', ['NDR', 'ndr', 'Action Required', 'Undelivered'])
+                  ->orWhere('status', 'LIKE', 'RTO%')
+                  ->orWhere('status', 'LIKE', 'rto%');
             });
         }
 

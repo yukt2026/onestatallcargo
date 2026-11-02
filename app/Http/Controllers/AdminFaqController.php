@@ -64,5 +64,10 @@ class AdminFaqController extends Controller
         $faq->delete();
         return redirect()->route('admin.faqs.index')->with('success', 'FAQ deleted successfully.');
     }
+
+    public function show(Faq $faq)
+    {
+        return redirect()->route('admin.faqs.edit', $faq->id);
+    }
 }
 

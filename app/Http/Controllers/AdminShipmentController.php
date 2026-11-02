@@ -12,11 +12,17 @@ class AdminShipmentController extends Controller
         $query = Shipment::with('user')->orderBy('created_at', 'desc');
 
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where('awb_number', 'LIKE', "%{$search}%")
-                  ->orWhereHas('user', function($q) use ($search) {
-                      $q->where('name', 'LIKE', "%{$search}%");
-                  });
+            $search = trim($request->search);
+            $query->where(function ($sub) use ($search) {
+                $sub->where('awb_number', 'LIKE', "%{$search}%")
+                    ->orWhere('order_id', 'LIKE', "%{$search}%")
+                    ->orWhere('receiver_name', 'LIKE', "%{$search}%")
+                    ->orWhere('receiver_phone', 'LIKE', "%{$search}%")
+                    ->orWhereHas('user', function($q) use ($search) {
+                        $q->where('name', 'LIKE', "%{$search}%")
+                          ->orWhere('company_name', 'LIKE', "%{$search}%");
+                    });
+            });
         }
 
         // Quick Date preset resolution
@@ -59,6 +65,39 @@ class AdminShipmentController extends Controller
             $query->where('courier_partner', $request->courier);
         }
 
+        // Status filter
+        if ($request->filled('status') && $request->status !== 'all') {
+            $status = strtolower(trim($request->status));
+            if ($status === 'rto' || str_starts_with($status, 'rto')) {
+                $query->where(function($q) {
+                    $q->where('status', 'LIKE', 'RTO%')
+                      ->orWhere('status', 'LIKE', 'rto%');
+                });
+            } elseif ($status === 'pickup' || str_starts_with($status, 'pickup')) {
+                $query->where(function($q) {
+                    $q->where('status', 'LIKE', 'pickup%')
+                      ->orWhere('status', 'LIKE', 'Pickup%');
+                });
+            } elseif ($status === 'transit' || in_array($status, ['in transit', 'in_transit'])) {
+                $query->whereIn('status', ['in_transit', 'In Transit', 'transit', 'Transit', 'In-Transit']);
+            } elseif (in_array($status, ['out for delivery', 'out_for_delivery', 'ofd'])) {
+                $query->whereIn('status', ['out_for_delivery', 'Out for Delivery', 'ofd', 'OFD']);
+            } elseif ($status === 'delivered') {
+                $query->whereIn('status', ['delivered', 'Delivered', 'DELIVERED']);
+            } elseif ($status === 'cancelled' || str_starts_with($status, 'cancel')) {
+                $query->where(function($q) {
+                    $q->where('status', 'LIKE', 'cancel%')
+                      ->orWhere('status', 'LIKE', 'Cancel%');
+                });
+            } elseif (in_array($status, ['ndr', 'action_required', 'undelivered'])) {
+                $query->whereIn('status', ['ndr', 'NDR', 'action_required', 'undelivered', 'Undelivered']);
+            } elseif (in_array($status, ['new', 'manifested', 'booked', 'pending'])) {
+                $query->whereIn('status', ['new', 'New', 'Manifested', 'manifested', 'Booked', 'booked', 'pending', 'new order']);
+            } else {
+                $query->where('status', 'LIKE', "%{$request->status}%");
+            }
+        }
+
         $couriers = \App\Models\Courier::where('is_active', true)->pluck('name');
 
         $shipments = $query->paginate(15)->withQueryString();
@@ -77,9 +116,12 @@ class AdminShipmentController extends Controller
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'order_id' => 'nullable|string',
+            'pickup_name' => 'nullable|string|max:255',
+            'pickup_phone' => 'nullable|string|max:20',
             'pickup_pincode' => 'required|string',
             'pickup_address' => 'required|string',
             'pickup_city' => 'required|string',
+            'pickup_state' => 'nullable|string|max:255',
             'receiver_name' => 'required|string',
             'receiver_phone' => 'required|string',
             'delivery_address' => 'required|string',
@@ -203,5 +245,144 @@ class AdminShipmentController extends Controller
     {
         $shipment = $this->findShipment($awb);
         return view('seller.invoice', compact('shipment'));
+    }
+
+    public function bulkPrintLabels(Request $request)
+    {
+        $rawIds = $request->input('ids') ?? $request->query('ids');
+        $rawAwbs = $request->input('awbs') ?? $request->query('awbs');
+
+        $ids = [];
+        if (is_array($rawIds)) {
+            $ids = array_filter($rawIds);
+        } elseif (is_string($rawIds) && trim($rawIds) !== '') {
+            $ids = array_filter(array_map('trim', explode(',', $rawIds)));
+        }
+
+        $awbs = [];
+        if (is_array($rawAwbs)) {
+            $awbs = array_filter($rawAwbs);
+        } elseif (is_string($rawAwbs) && trim($rawAwbs) !== '') {
+            $awbs = array_filter(array_map('trim', explode(',', $rawAwbs)));
+        }
+
+        $query = Shipment::with(['user', 'pickupFranchise']);
+
+        if (!empty($ids)) {
+            $query->whereIn('id', $ids);
+        } elseif (!empty($awbs)) {
+            $query->whereIn('awb_number', $awbs);
+        } else {
+            return back()->with('error', 'Please select at least one shipment to print slips.');
+        }
+
+        $shipments = $query->orderBy('id', 'desc')->get();
+
+        if ($shipments->isEmpty()) {
+            return back()->with('error', 'No eligible shipments found for the selected orders.');
+        }
+
+        $settings = [
+            'label_type' => 'thermal',
+            'enable_product_name' => true,
+            'enable_consignee_contact' => true,
+            'enable_consignee_address' => true,
+            'enable_support_contact' => true,
+            'enable_support_email' => true,
+            'enable_rto_address' => true,
+        ];
+
+        $generator = null;
+        if (class_exists(\Picqer\Barcode\BarcodeGeneratorSVG::class)) {
+            try {
+                $generator = new \Picqer\Barcode\BarcodeGeneratorSVG();
+            } catch (\Throwable $e) {
+                $generator = null;
+            }
+        }
+
+        $items = [];
+        foreach ($shipments as $shipment) {
+            $barcode = null;
+            if ($generator && !empty($shipment->awb_number)) {
+                try {
+                    $barcode = $generator->getBarcode($shipment->awb_number, $generator::TYPE_CODE_128, 2, 60);
+                } catch (\Throwable $e) {
+                    $barcode = null;
+                }
+            }
+            $items[] = [
+                'shipment' => $shipment,
+                'barcode' => $barcode,
+            ];
+        }
+
+        $idsString = implode(',', $shipments->pluck('id')->toArray());
+
+        if ($request->query('download') === 'pdf' || $request->input('download') === 'pdf' || $request->query('format') === 'pdf') {
+            if (class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
+                try {
+                    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('seller.bulk-labels', compact('items', 'settings', 'idsString'));
+                    return $pdf->download("bulk-shipment-slips-" . count($items) . "-orders.pdf");
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error("Bulk PDF generation failed: " . $e->getMessage());
+                }
+            }
+        }
+
+        return view('seller.bulk-labels', compact('items', 'settings', 'idsString'));
+    }
+
+    public function cancel($id)
+    {
+        $shipment = Shipment::findOrFail($id);
+        
+        if (strtolower(trim($shipment->status)) === 'cancelled') {
+            return back()->with('error', 'This shipment is already cancelled.');
+        }
+
+        $cancellableStatuses = ['new', 'manifested', 'booked', 'pickup_scheduled', 'pickup scheduled', 'pickup pending', 'pickup_pending', 'pending', 'new order'];
+        $currentSt = strtolower(trim($shipment->status));
+        
+        if (!in_array($currentSt, $cancellableStatuses) && !str_starts_with($currentSt, 'pickup')) {
+            return back()->with('error', "Shipment with status '{$shipment->status}' cannot be cancelled.");
+        }
+
+        $shipment->status = 'cancelled';
+        $shipment->save();
+
+        $alreadyDebited = (float) \App\Models\WalletTransaction::where('reference_id', $shipment->awb_number)
+            ->where('type', 'debit')
+            ->where('status', 'success')
+            ->sum('amount');
+
+        $refundAmount = $alreadyDebited > 0 ? $alreadyDebited : (float)($shipment->total_amount ?? $shipment->shipping_charge ?? 0);
+
+        if ($refundAmount > 0 && $shipment->user_id) {
+            $user = \App\Models\User::find($shipment->user_id);
+            if ($user) {
+                $user->wallet_balance += $refundAmount;
+                $user->save();
+
+                \App\Models\WalletTransaction::create([
+                    'user_id' => $user->id,
+                    'amount' => $refundAmount,
+                    'type' => 'credit',
+                    'balance_after' => $user->wallet_balance,
+                    'reference_id' => $shipment->awb_number,
+                    'description' => 'Admin refund for cancelled shipment ' . $shipment->awb_number,
+                    'status' => 'success',
+                ]);
+            }
+        }
+
+        \App\Models\ShipmentEvent::create([
+            'shipment_id' => $shipment->id,
+            'status' => 'Cancelled',
+            'location' => 'Admin Operations',
+            'remarks' => 'Shipment cancelled by Admin. Refund processed to user wallet.'
+        ]);
+
+        return back()->with('success', 'Shipment cancelled successfully and amount refunded.');
     }
 }

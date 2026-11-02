@@ -72,4 +72,9 @@ class AdminApiDocController extends Controller
         $apiDoc->delete();
         return redirect()->route('admin.api_docs.index')->with('success', 'API Documentation deleted successfully.');
     }
+
+    public function show(ApiDoc $apiDoc)
+    {
+        return redirect()->route('admin.api_docs.edit', $apiDoc->id);
+    }
 }

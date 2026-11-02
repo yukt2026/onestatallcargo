@@ -67,12 +67,17 @@ class User extends Authenticatable
 
     public function isSeller(): bool
     {
-        return $this->role === 'seller';
+        return in_array($this->role, ['seller', 'aggregator', 'b2b_customer', 'corporate']);
     }
 
     public function isFranchise(): bool
     {
         return $this->role === 'franchise';
+    }
+
+    public function isRider(): bool
+    {
+        return in_array($this->role, ['rider', 'pickup_rider', 'delivery_rider']);
     }
 
     public function kyc()

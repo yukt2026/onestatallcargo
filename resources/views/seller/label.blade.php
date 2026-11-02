@@ -5,10 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shipping Label - {{ $shipment->awb_number }}</title>
     <style>
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background: #f3f4f6; display: flex; flex-direction: column; align-items: center; }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f3f4f6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #000;
+        }
         .no-print-bar {
             width: 100%;
-            max-width: 384px;
+            max-width: 400px;
             margin-bottom: 12px;
             display: flex;
             justify-content: space-between;
@@ -24,14 +33,6 @@
             font-size: 12px;
             font-weight: 700;
             color: #1f2937;
-        }
-        .no-print-bar .badge {
-            background: #e0e7ff;
-            color: #4338ca;
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 9999px;
-            margin-left: 4px;
         }
         .no-print-bar .btns {
             display: flex;
@@ -66,34 +67,127 @@
         .btn-close:hover {
             background: #e5e7eb;
         }
-        .label-container { width: 100%; max-width: 384px; min-height: 576px; background: #fff; border: 2px solid #000; padding: 15px; box-sizing: border-box; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); display: flex; flex-direction: column; }
-        .header { border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 10px; text-align: center; }
-        .header h1 { margin: 0; font-size: 20px; font-weight: bold; letter-spacing: 0.5px; }
-        .barcode-area { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 10px; }
-        .barcode-bars { height: 60px; background: repeating-linear-gradient(90deg, #000, #000 2px, #fff 2px, #fff 4px, #000 4px, #000 8px, #fff 8px, #fff 10px, #000 10px, #000 14px, #fff 14px, #fff 18px); margin-bottom: 10px; width: 100%; }
-        .barcode-text { font-family: 'Courier New', Courier, monospace; font-size: 26px; font-weight: bold; letter-spacing: 2px; }
-        .addresses { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 10px; font-size: 11px; line-height: 1.35; }
-        .address-box { word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; }
-        .address-box strong { display: block; margin-bottom: 3px; font-size: 12px; font-weight: 800; text-transform: uppercase; border-bottom: 1px solid #ddd; padding-bottom: 2px; }
-        .details { font-size: 11px; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 10px; }
-        .details table { width: 100%; text-align: left; border-collapse: collapse; border: 1px solid #000; table-layout: fixed; word-wrap: break-word; }
-        .details th { font-weight: bold; padding: 4px 6px; vertical-align: top; background: #f9fafb; border: 1px solid #000; font-size: 10px; }
-        .details td { padding: 4px 6px; vertical-align: top; border: 1px solid #000; font-size: 10px; font-weight: bold; }
-        .cod-box { font-size: 22px; font-weight: bold; text-align: center; padding: 10px; border: 2px solid #000; margin-top: 15px; margin-bottom: 15px; border-radius: 4px; }
-        .cod-box.prepaid { border-color: #4CAF50; color: #4CAF50; }
-        .footer { text-align: center; font-size: 9px; font-weight: bold; line-height: 1.3; margin-top: auto; word-wrap: break-word; }
-        
+
+        /* Label Structure matching sample */
+        .label-container {
+            width: 100%;
+            max-width: 400px;
+            min-height: 580px;
+            background: #fff;
+            border: 2px solid #000;
+            box-sizing: border-box;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .label-row {
+            display: flex;
+            width: 100%;
+            border-bottom: 1.5px solid #000;
+            box-sizing: border-box;
+        }
+        .cell-left {
+            width: 60%;
+            padding: 8px 10px;
+            box-sizing: border-box;
+            font-size: 12px;
+            font-weight: 700;
+            border-right: 1.5px solid #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .cell-right {
+            width: 40%;
+            padding: 8px 10px;
+            box-sizing: border-box;
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+        }
+
+        .header-logo {
+            font-size: 18px;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            color: #000;
+            line-height: 1.1;
+        }
+        .header-tagline {
+            font-size: 8.5px;
+            color: #555;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+        }
+
+        .barcode-area {
+            text-align: center;
+            border-bottom: 1.5px solid #000;
+            padding: 10px 10px 8px 10px;
+            box-sizing: border-box;
+        }
+        .barcode-bars {
+            height: 55px;
+            background: repeating-linear-gradient(90deg, #000, #000 2px, #fff 2px, #fff 4px, #000 4px, #000 8px, #fff 8px, #fff 10px, #000 10px, #000 14px, #fff 14px, #fff 18px);
+            margin-bottom: 6px;
+            width: 100%;
+        }
+        .barcode-text {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 18px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: #000;
+        }
+
+        .section-box {
+            padding: 8px 10px;
+            border-bottom: 1.5px solid #000;
+            font-size: 11px;
+            line-height: 1.35;
+            box-sizing: border-box;
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+        .section-title {
+            font-size: 11px;
+            font-weight: 800;
+            color: #000;
+            margin-bottom: 2px;
+        }
+        .section-content {
+            font-size: 11px;
+            color: #111;
+            font-weight: 600;
+        }
+
+        .support-box {
+            padding: 8px 10px;
+            text-align: center;
+            font-size: 11px;
+            line-height: 1.4;
+            box-sizing: border-box;
+            margin-top: auto;
+        }
+        .support-title {
+            font-size: 12px;
+            font-weight: 800;
+            margin-bottom: 2px;
+        }
+
         @media print {
             .no-print, .no-print-bar { display: none !important; }
             body { padding: 0; background: #fff; display: block; }
-            .label-container { border: none; width: 4in; height: 6in; max-width: 4in; min-height: 6in; margin: 0; padding: 0; box-shadow: none; }
+            .label-container { border: 2px solid #000; width: 4in; height: auto; min-height: 6in; margin: 0 auto; padding: 0; box-shadow: none; }
             .barcode-bars { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .cod-box.prepaid { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
-        @media (max-width: 400px) {
-            body { padding: 10px; }
-            .header h1 { font-size: 18px; }
-            .barcode-text { font-size: 22px; }
+        @media (max-width: 420px) {
+            body { padding: 8px; }
+            .header-logo { font-size: 16px; }
+            .barcode-text { font-size: 16px; }
         }
     </style>
 </head>
@@ -111,13 +205,48 @@
             </button>
         </div>
     </div>
+
     <div class="label-container">
-        <div class="header">
-            <h1>ONESTALL CARGO</h1>
+        <!-- Row 1: Logo & Order ID -->
+        <div class="label-row">
+            <div class="cell-left">
+                <div class="header-logo">ONESTALL CARGO</div>
+                <div class="header-tagline">delivering logistics happiness</div>
+            </div>
+            <div class="cell-right">
+                <div>Order ID: <span style="font-weight: 800;">{{ $shipment->order_id ?? $shipment->awb_number }}</span></div>
+            </div>
         </div>
-        
+
+        <!-- Row 2: AWB NO & Payment -->
+        <div class="label-row">
+            <div class="cell-left">
+                <div>AWB NO: <span style="font-weight: 800;">{{ $shipment->awb_number }}</span></div>
+            </div>
+            <div class="cell-right">
+                <div style="font-weight: 800; font-size: 13px;">
+                    @if($shipment->is_cod)
+                        COD ₹ {{ number_format($shipment->cod_amount ?? $shipment->invoice_value, 2) }}
+                    @else
+                        PREPAID
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 3: Product Name & Qty -->
+        <div class="label-row">
+            <div class="cell-left">
+                <div>Product Name: <span style="font-weight: 700;">{{ $shipment->product_name ?? 'General Cargo' }}</span>@if(!empty($shipment->weight_kg)) <span style="font-size: 10px; color: #555;">({{ $shipment->weight_kg }} KG)</span>@endif</div>
+            </div>
+            <div class="cell-right">
+                <div>Qty: <span style="font-weight: 800;">{{ $shipment->product_qty ?? 1 }}</span></div>
+            </div>
+        </div>
+
+        <!-- Row 4: Barcode Area -->
         <div class="barcode-area">
-            <div style="margin-bottom: 5px; display: flex; justify-content: center; width: 100%;">
+            <div style="margin-bottom: 4px; display: flex; justify-content: center; width: 100%;">
                 @if(!empty($barcode))
                     {!! $barcode !!}
                 @else
@@ -126,71 +255,39 @@
             </div>
             <div class="barcode-text">{{ $shipment->awb_number }}</div>
         </div>
-        
-        <div class="addresses">
-            <div class="address-box">
-                <strong>TO:</strong>
-                {{ $shipment->receiver_name }}<br>
-                @if(!empty($settings['enable_consignee_address'])){{ $shipment->delivery_address }}<br>@else<i>[Address Hidden]</i><br>@endif
-                {{ $shipment->delivery_city }} - {{ $shipment->delivery_pincode }}<br>
-                {{ strtoupper($shipment->destination_country ?? 'India') }}<br>
-                Ph: {{ !empty($settings['enable_consignee_contact']) ? $shipment->receiver_phone : substr($shipment->receiver_phone, 0, 4) . '******' }}
+
+        <!-- Consignee Details (Customer name, complete address & mobile number clearly visible) -->
+        <div class="section-box">
+            <div class="section-title">Consignee Name:</div>
+            <div class="section-content" style="font-weight: 800; font-size: 12px; margin-bottom: 4px;">{{ $shipment->receiver_name }}</div>
+            
+            <div class="section-title">Shipping Address:</div>
+            <div class="section-content" style="margin-bottom: 4px;">
+                {{ $shipment->delivery_address }}{{ !empty($shipment->delivery_city) ? ', ' . $shipment->delivery_city : '' }}{{ !empty($shipment->delivery_state) ? ', ' . $shipment->delivery_state : '' }}, {{ $shipment->delivery_pincode }}, {{ strtoupper($shipment->destination_country ?? 'India') }}
             </div>
-            <div class="address-box">
-                <strong>FROM:</strong>
-                {{ optional($shipment->user)->company_name ?? optional($shipment->user)->name ?? 'OneStall Shipper' }}<br>
-                {{ $shipment->pickup_address ?? 'Origin Hub' }}<br>{{ $shipment->pickup_city ?? 'City' }} - {{ $shipment->pickup_pincode ?? '000000' }}<br>
-                @if(Auth::check() && Auth::user()->isAdmin())
-                    Ph: {{ optional($shipment->user)->phone ?? 'N/A' }}
-                @else
-                    Ph: **********
-                @endif
+            
+            <div class="section-content">
+                <strong>Mobile:</strong> {{ $shipment->receiver_phone }}
             </div>
         </div>
-        
-        <div class="details">
-            <table>
-                <tr>
-                    <th>Date:</th><td>{{ $shipment->created_at->format('d/m/Y') }}</td>
-                    <th>Weight:</th><td>{{ $shipment->weight_kg }} KG</td>
-                </tr>
-                <tr>
-                    <th>Dimensions:</th><td>{{ $shipment->length_cm ?? 0 }}x{{ $shipment->width_cm ?? 0 }}x{{ $shipment->height_cm ?? 0 }} cm</td>
-                    <th>Payment:</th><td>{{ $shipment->is_cod ? 'COD' : 'PREPAID' }}</td>
-                </tr>
-                @if($shipment->shipment_type == 'International')
-                <tr>
-                    <th>Customs Val:</th><td>${{ $shipment->customs_value }}</td>
-                    <th>HS Code:</th><td>{{ $shipment->hs_code }}</td>
-                </tr>
-                @endif
-                @if($shipment->shipment_type == 'B2B')
-                <tr>
-                    <th>Vehicle:</th><td colspan="3">{{ $shipment->vehicle_type }}</td>
-                </tr>
-                @endif
-            </table>
+
+        <!-- Return Address (Seller Address visible, Seller personal mobile number hidden) -->
+        <div class="section-box">
+            <div class="section-title">Return Address:</div>
+            <div class="section-content" style="margin-bottom: 4px;">
+                <span style="font-weight: 700;">{{ !empty(trim($shipment->pickup_name ?? '')) ? $shipment->pickup_name : (optional($shipment->user)->company_name ?: optional($shipment->user)->brand_name ?: optional($shipment->pickupFranchise)->company_name ?: optional($shipment->user)->name ?: 'OneStall Shipper') }}</span><br>
+                {{ !empty(trim($shipment->pickup_address ?? '')) ? $shipment->pickup_address : (optional($shipment->user)->company_address ?: optional($shipment->pickupFranchise)->address ?: 'Origin Hub') }}, {{ !empty(trim($shipment->pickup_city ?? '')) ? $shipment->pickup_city : (optional($shipment->user)->company_city ?: 'City') }}{{ !empty($shipment->pickup_state) ? ', ' . $shipment->pickup_state : (!empty(optional($shipment->user)->company_state) ? ', ' . optional($shipment->user)->company_state : (!empty(optional($shipment->pickupFranchise)->state) ? ', ' . optional($shipment->pickupFranchise)->state : '')) }}, {{ !empty(trim($shipment->pickup_pincode ?? '')) ? $shipment->pickup_pincode : (optional($shipment->user)->company_pincode ?: '000000') }}, India
+            </div>
+            <div class="section-content">
+                <strong>Mobile:</strong> **********
+            </div>
         </div>
-        
-        @if($shipment->is_cod)
-        <div class="cod-box">
-            COD TO COLLECT: Rs. {{ number_format($shipment->cod_amount ?? $shipment->invoice_value, 2) }}
-        </div>
-        @else
-        <div class="cod-box prepaid">
-            PREPAID
-        </div>
-        @endif
-        
-        <div class="footer">
-            @if(!empty($settings['enable_rto_address']))<p>Return Address: If undelivered, return to {{ $shipment->pickup_address }}, {{ $shipment->pickup_city }} - {{ $shipment->pickup_pincode }}</p>@endif 
-            @if(!empty($settings['enable_support_contact']) || !empty($settings['enable_support_email']))
-            <p>
-                @if(!empty($settings['enable_support_contact'])) Support: {{ $shipment->user->support_phone ?? '1800-XXX-XXXX' }} @endif 
-                @if(!empty($settings['enable_support_contact']) && !empty($settings['enable_support_email'])) | @endif
-                @if(!empty($settings['enable_support_email'])) Email: support@onestallcargo.com @endif
-            </p>
-            @endif
+
+        <!-- Support Details (Seller Email & Support Contact Number provided at the bottom) -->
+        <div class="support-box">
+            <div class="support-title">Support Details</div>
+            <div>Contact No: {{ !empty(trim($shipment->pickup_phone ?? '')) ? $shipment->pickup_phone : (optional($shipment->user)->support_phone ?: optional($shipment->user)->phone ?: '8384868758') }}</div>
+            <div>Email ID: {{ optional($shipment->user)->email ?? 'rishisolidgroup@gmail.com' }}</div>
         </div>
     </div>
 </body>

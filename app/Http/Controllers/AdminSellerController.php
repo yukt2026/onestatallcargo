@@ -99,6 +99,11 @@ class AdminSellerController extends Controller
         return back()->with('success', $msg);
     }
 
+    public function toggle($id)
+    {
+        return $this->toggleStatus($id);
+    }
+
     public function destroy($id)
     {
         $seller = User::findOrFail($id);

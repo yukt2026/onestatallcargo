@@ -28,10 +28,10 @@ class SellerReportController extends Controller
         // Aggregate statistics for the selected month
         $stats = [
             'total_shipments'    => (clone $baseQuery)->count(),
-            'delivered_count'    => (clone $baseQuery)->where('status', 'Delivered')->count(),
-            'in_transit_count'   => (clone $baseQuery)->whereIn('status', ['In Transit', 'Out for Delivery', 'Manifested', 'Received', 'Pickup Scheduled'])->count(),
-            'ndr_count'          => (clone $baseQuery)->where('status', 'NDR')->count(),
-            'rto_count'          => (clone $baseQuery)->whereIn('status', ['RTO Initiated', 'RTO Delivered'])->count(),
+            'delivered_count'    => (clone $baseQuery)->whereIn('status', ['Delivered', 'delivered', 'DELIVERED'])->count(),
+            'in_transit_count'   => (clone $baseQuery)->whereIn('status', ['In Transit', 'in_transit', 'transit', 'Transit', 'In-Transit', 'Out for Delivery', 'out_for_delivery', 'Manifested', 'manifested', 'Received', 'Pickup Scheduled', 'pickup_scheduled'])->count(),
+            'ndr_count'          => (clone $baseQuery)->whereIn('status', ['NDR', 'ndr', 'Action Required', 'Undelivered'])->count(),
+            'rto_count'          => (clone $baseQuery)->where(function($q) { $q->where('status', 'LIKE', 'RTO%')->orWhere('status', 'LIKE', 'rto%'); })->count(),
             'total_weight_kg'    => (float) ((clone $baseQuery)->sum('weight_kg')),
             'total_freight'      => (float) ((clone $baseQuery)->sum('shipping_charge')),
             'cod_orders_count'   => (clone $baseQuery)->where('is_cod', 1)->count(),
@@ -48,7 +48,12 @@ class SellerReportController extends Controller
         $tableQuery = clone $baseQuery;
 
         if ($request->filled('status')) {
-            $tableQuery->where('status', $request->query('status'));
+            $st = strtolower(trim($request->query('status')));
+            if ($st === 'rto' || str_starts_with($st, 'rto')) {
+                $tableQuery->where(function($q) { $q->where('status', 'LIKE', 'RTO%')->orWhere('status', 'LIKE', 'rto%'); });
+            } else {
+                $tableQuery->where('status', $request->query('status'));
+            }
         }
 
         if ($request->filled('payment_mode')) {

@@ -33,6 +33,11 @@
                 <div class="text-sm mt-1">
                     <span class="font-bold text-gray-500">Date:</span> <span class="font-bold text-gray-900">{{ $shipment->created_at->format('d M Y, H:i') }}</span>
                 </div>
+                @if(!empty($shipment->eway_bill_number))
+                <div class="text-sm mt-1">
+                    <span class="font-bold text-gray-500">E-Way Bill:</span> <span class="font-black text-gray-900 font-mono">{{ $shipment->eway_bill_number }}</span>
+                </div>
+                @endif
             </div>
         </div>
 
@@ -41,19 +46,16 @@
             <!-- Consignor -->
             <div class="border border-gray-300 p-4 rounded-lg">
                 <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 pb-2 mb-2">Consignor (Sender)</h3>
-                <p class="font-black text-lg text-gray-900">{{ optional($shipment->user)->company_name ?? optional($shipment->user)->name ?? Auth::user()->name }}</p>
-                @if(Auth::check() && Auth::user()->isAdmin())
-                    <p class="text-sm text-gray-700 mt-1">Ph: {{ optional($shipment->user)->phone ?? Auth::user()->phone ?? 'N/A' }}</p>
-                @else
-                    <p class="text-sm text-gray-700 mt-1">Ph: **********</p>
-                @endif
+                <p class="font-black text-lg text-gray-900">{{ !empty(trim($shipment->pickup_name ?? '')) ? $shipment->pickup_name : (optional($shipment->user)->company_name ?: optional($shipment->user)->name ?: (Auth::user()->name ?? 'OneStall Shipper')) }}</p>
+                <p class="text-sm text-gray-700 mt-1">{{ !empty(trim($shipment->pickup_address ?? '')) ? $shipment->pickup_address : 'Origin Hub' }}<br>{{ $shipment->pickup_city ?? '' }}{{ !empty($shipment->pickup_state) ? ', ' . $shipment->pickup_state : '' }} - {{ $shipment->pickup_pincode ?? '' }}</p>
+                <p class="text-sm text-gray-700 mt-1 font-semibold">Ph: {{ !empty(trim($shipment->pickup_phone ?? '')) ? $shipment->pickup_phone : (optional($shipment->user)->phone ?: (Auth::user()->phone ?? 'N/A')) }}</p>
             </div>
             
             <!-- Consignee -->
             <div class="border border-gray-300 p-4 rounded-lg bg-gray-50">
                 <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 pb-2 mb-2">Consignee (Receiver)</h3>
                 <p class="font-black text-lg text-gray-900">{{ $shipment->receiver_name }}</p>
-                <p class="text-sm text-gray-700 mt-1">{{ $shipment->delivery_address }}<br>{{ $shipment->delivery_city }} - {{ $shipment->delivery_pincode }}</p>
+                <p class="text-sm text-gray-700 mt-1">{{ $shipment->delivery_address }}<br>{{ $shipment->delivery_city }}{{ !empty($shipment->delivery_state) ? ', ' . $shipment->delivery_state : '' }} - {{ $shipment->delivery_pincode }}</p>
                 <p class="text-sm text-gray-700 mt-1 font-bold">Ph: {{ $shipment->receiver_phone ?? $shipment->delivery_phone ?? 'N/A' }}</p>
             </div>
         </div>

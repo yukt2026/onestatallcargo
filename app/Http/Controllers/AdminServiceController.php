@@ -65,5 +65,10 @@ class AdminServiceController extends Controller
         $service->delete();
         return redirect()->route('admin.services.index')->with('success', 'Service deleted successfully.');
     }
+
+    public function show(Service $service)
+    {
+        return redirect()->route('admin.services.edit', $service->id);
+    }
 }
 

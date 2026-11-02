@@ -81,10 +81,12 @@ class SellerDashboardController extends Controller
         $rtoInTransit = ($statusGroup['rto_transit'] ?? 0) 
             + ($statusGroup['rto in-transit'] ?? 0) 
             + ($statusGroup['rto_in_transit'] ?? 0)
-            + ($statusGroup['rto in transit'] ?? 0);
+            + ($statusGroup['rto in transit'] ?? 0)
+            + ($statusGroup['rto initiated'] ?? 0)
+            + ($statusGroup['rto_initiated'] ?? 0)
+            + ($statusGroup['rto'] ?? 0);
 
-        $rtoDelivered = ($statusGroup['rto'] ?? 0) 
-            + ($statusGroup['rto delivered'] ?? 0) 
+        $rtoDelivered = ($statusGroup['rto delivered'] ?? 0) 
             + ($statusGroup['rto_delivered'] ?? 0);
 
         $lostCount = ($statusGroup['lost'] ?? 0) 
@@ -103,7 +105,7 @@ class SellerDashboardController extends Controller
             ->where(function($q) {
                 $q->whereNull('cod_remitted')->orWhere('cod_remitted', false);
             })
-            ->sum('invoice_value');
+            ->sum(\Illuminate\Support\Facades\DB::raw('COALESCE(cod_amount, invoice_value, 0)'));
 
         // 6. Recent Shipments
         $recentShipments = (clone $baseQuery)

@@ -26,7 +26,7 @@ class FranchiseCommissionService
         return DB::transaction(function () use ($shipment) {
             // Re-fetch shipment with row lock
             $lockedShipment = Shipment::lockForUpdate()->find($shipment->id);
-            if (!$lockedShipment || $lockedShipment->status !== 'Delivered') {
+            if (!$lockedShipment || strtolower(trim($lockedShipment->status)) !== 'delivered') {
                 return ['success' => false, 'reason' => 'Shipment is not delivered.'];
             }
 

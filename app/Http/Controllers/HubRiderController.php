@@ -54,6 +54,25 @@ class HubRiderController extends Controller
         $hubManagerId = Auth::id();
         $hub = \App\Models\Hub::where('manager_id', $hubManagerId)->first();
         if(!$hub) {
+            $franchise = Franchise::where('user_id', $hubManagerId)->first();
+            if ($franchise) {
+                $pincode = '110001';
+                if (is_array($franchise->serviceable_pincodes) && count($franchise->serviceable_pincodes) > 0) {
+                    $pincode = $franchise->serviceable_pincodes[0];
+                }
+                $hub = \App\Models\Hub::firstOrCreate(
+                    ['manager_id' => $hubManagerId],
+                    [
+                        'name' => $franchise->company_name ?? 'Franchise Hub',
+                        'hub_code' => 'HUB-' . $franchise->id,
+                        'city' => $franchise->city ?? 'City',
+                        'pincode' => $pincode,
+                        'is_active' => true,
+                    ]
+                );
+            }
+        }
+        if(!$hub) {
             return redirect()->route('hub.dashboard')->with('error', 'No Hub Assigned.');
         }
 

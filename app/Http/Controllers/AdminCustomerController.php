@@ -88,4 +88,9 @@ class AdminCustomerController extends Controller
         $customer->save();
         return back()->with('success', $msg);
     }
+
+    public function toggle($id)
+    {
+        return $this->toggleStatus($id);
+    }
 }

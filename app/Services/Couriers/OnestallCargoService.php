@@ -59,7 +59,7 @@ class OnestallCargoService implements CourierInterface
     public function createShipment(array $shipmentDetails): array
     {
         // Generate an internal AWB number
-        $awb = 'OSC' . strtoupper(Str::random(8));
+        $awb = app(\App\Services\AwbGeneratorService::class)->generateUniqueAwb();
 
         return [
             'status' => 'success',

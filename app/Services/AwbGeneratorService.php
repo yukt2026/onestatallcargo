@@ -10,25 +10,31 @@ class AwbGeneratorService
 {
     /**
      * Generate a unique AWB number safely using transactions and locks.
-     * Guaranteed uniqueness.
+     * Guaranteed uniqueness. Standard format: AWB-12345678 (Clear, non-confusing format).
      * 
-     * @param string $prefix
+     * @param string|null $prefix
      * @param int $length
      * @return string
      */
-    public function generateUniqueAwb(string $prefix = 'OSC', int $length = 9): string
+    public function generateUniqueAwb(?string $prefix = null, int $length = 8): string
     {
-        $maxAttempts = 10;
+        if ($prefix === null) {
+            $prefix = \App\Models\Setting::where('key', 'awb_prefix')->value('value') ?: 'AWB-';
+        }
+
+        // Ensure clean prefix format if user set AWB without hyphen (e.g. AWB -> AWB-)
+        if (!empty($prefix) && !str_ends_with($prefix, '-') && strtoupper($prefix) === 'AWB') {
+            $prefix .= '-';
+        }
+
+        $maxAttempts = 20;
         $attempt = 0;
 
         while ($attempt < $maxAttempts) {
-            // Generate a random numeric string (or alphanumeric)
-            // Using purely numeric for standard AWB format (e.g., OSC123456789)
-            $randomString = $this->generateRandomNumericString($length);
-            $awb = $prefix . $randomString;
+            $randomDigits = $this->generateRandomNumericString($length);
+            $awb = $prefix . $randomDigits;
 
-            // Check if it exists, use lockForUpdate if we were in a transaction creating the shipment
-            // For simple generation, we just check existence. The database unique constraint handles concurrent race conditions.
+            // Check if it exists
             $exists = Shipment::where('awb_number', $awb)->exists();
 
             if (!$exists) {
@@ -38,9 +44,8 @@ class AwbGeneratorService
             $attempt++;
         }
 
-        // Fallback if we somehow hit 10 collisions (astronomically low probability)
-        // Add a timestamp component
-        return $prefix . time() . rand(10, 99);
+        // Fallback if we somehow hit collisions
+        return $prefix . time() . random_int(10, 99);
     }
 
     private function generateRandomNumericString(int $length): string

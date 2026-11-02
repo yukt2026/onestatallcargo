@@ -124,13 +124,19 @@ class SellerShipmentController extends Controller
             'delivery_address' => 'required|string',
             'delivery_city' => 'required|string',
             'delivery_pincode' => 'required|string',
+            'pickup_name' => 'nullable|string|max:255',
+            'pickup_phone' => 'nullable|string|max:20',
             'pickup_pincode' => 'nullable|string',
             'pickup_address' => 'nullable|string',
             'pickup_city' => 'nullable|string',
+            'pickup_state' => 'nullable|string',
+            'pickup_location' => 'nullable',
+            'save_to_warehouses' => 'nullable',
             'destination_country' => 'nullable|string',
             'customs_value' => 'nullable|numeric',
             'hs_code' => 'nullable|string',
             'vehicle_type' => 'nullable|string',
+            'eway_bill_number' => 'nullable|string|max:50',
             'weight_kg' => 'required|numeric',
             'payment_mode' => 'nullable|string',
             'cod_amount' => 'nullable|numeric',
@@ -153,37 +159,86 @@ class SellerShipmentController extends Controller
         } else {
             $shipment = new Shipment();
             $shipment->user_id = $user->id;
-            $shipment->awb_number = 'OSC' . strtoupper(Str::random(8));
+            $shipment->awb_number = app(\App\Services\AwbGeneratorService::class)->generateUniqueAwb();
         }
 
         $isInternational = ($validated['shipment_type'] ?? '') === 'International';
         $is_cod = ($request->input('payment_mode') === 'COD');
         $codOrInvoiceVal = (float)($validated['cod_amount'] ?? $validated['invoice_value'] ?? 0);
 
-        // Auto-resolve pickup location / warehouse
-        if (empty($validated['pickup_pincode']) && $request->filled('pickup_location')) {
+        // Resolve pickup details: from selected warehouse or custom input
+        $wh = null;
+        if ($request->filled('pickup_location')) {
             $wh = \App\Models\Warehouse::find($request->input('pickup_location'));
-            if ($wh) {
-                $validated['pickup_pincode'] = $wh->pincode;
-                $validated['pickup_address'] = $wh->address;
-                $validated['pickup_city'] = $wh->city;
-            }
         }
-        if (empty($validated['pickup_pincode'])) {
+
+        $pickupName = $request->input('pickup_name') ?: ($wh ? ($wh->contact_person ? $wh->contact_person . ' (' . $wh->name . ')' : $wh->name) : null);
+        $pickupPhone = $request->input('pickup_phone') ?: ($wh ? $wh->phone : null);
+        $pickupAddress = $request->input('pickup_address') ?: ($wh ? $wh->address : null);
+        $pickupCity = $request->input('pickup_city') ?: ($wh ? $wh->city : null);
+        $pickupState = $request->input('pickup_state') ?: ($wh ? $wh->state : null);
+        $pickupPincode = $request->input('pickup_pincode') ?: ($wh ? $wh->pincode : null);
+
+        // Fallback to default warehouse ONLY if no pickup address/pincode provided at all
+        if (empty($pickupPincode) && empty($pickupAddress)) {
             $defaultWh = \App\Models\Warehouse::where('user_id', $user->id)->where('is_default', true)->first()
                       ?? \App\Models\Warehouse::where('user_id', $user->id)->first();
             if ($defaultWh) {
-                $validated['pickup_pincode'] = $defaultWh->pincode;
-                $validated['pickup_address'] = $defaultWh->address;
-                $validated['pickup_city'] = $defaultWh->city;
+                $pickupName = $pickupName ?: ($defaultWh->contact_person ? $defaultWh->contact_person . ' (' . $defaultWh->name . ')' : $defaultWh->name);
+                $pickupPhone = $pickupPhone ?: $defaultWh->phone;
+                $pickupAddress = $pickupAddress ?: $defaultWh->address;
+                $pickupCity = $pickupCity ?: $defaultWh->city;
+                $pickupState = $pickupState ?: $defaultWh->state;
+                $pickupPincode = $pickupPincode ?: $defaultWh->pincode;
             } else {
-                $validated['pickup_pincode'] = '110001';
+                $pickupPincode = $user->pincode ?? '110001';
+                $pickupCity = $user->city ?? 'Origin';
             }
         }
 
-        $shipment->pickup_pincode = $validated['pickup_pincode'];
-        $shipment->pickup_address = $validated['pickup_address'] ?? null;
-        $shipment->pickup_city = $validated['pickup_city'] ?? 'Origin';
+        if (!empty($pickupPhone)) {
+            $cleanedPhone = preg_replace('/[^0-9]/', '', (string)$pickupPhone);
+            if (strlen($cleanedPhone) > 10 && str_starts_with($cleanedPhone, '91')) {
+                $cleanedPhone = substr($cleanedPhone, -10);
+            }
+            $pickupPhone = $cleanedPhone;
+        }
+        if (!empty($pickupPincode)) {
+            $pickupPincode = substr(preg_replace('/[^0-9]/', '', (string)$pickupPincode), 0, 6);
+        }
+
+        // Auto-save new pickup warehouse if requested
+        if ($request->filled('save_to_warehouses') && !empty($pickupAddress) && !empty($pickupPincode)) {
+            try {
+                \App\Models\Warehouse::create([
+                    'user_id' => $user->id,
+                    'name' => $pickupName ?: 'Pickup Point',
+                    'contact_person' => $pickupName ?: $user->name,
+                    'phone' => $pickupPhone ?: $user->phone,
+                    'address' => $pickupAddress,
+                    'city' => $pickupCity ?: 'City',
+                    'state' => $pickupState ?: 'State',
+                    'pincode' => $pickupPincode,
+                    'is_default' => (\App\Models\Warehouse::where('user_id', $user->id)->count() === 0),
+                ]);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Auto-save warehouse failed: " . $e->getMessage());
+            }
+        }
+
+        $validated['pickup_pincode'] = $pickupPincode;
+        $validated['pickup_address'] = $pickupAddress;
+        $validated['pickup_city'] = $pickupCity ?: 'Origin';
+        $validated['pickup_state'] = $pickupState;
+        $validated['pickup_phone'] = $pickupPhone;
+        $validated['pickup_name'] = $pickupName;
+
+        $shipment->pickup_name = $pickupName;
+        $shipment->pickup_phone = $pickupPhone;
+        $shipment->pickup_address = $pickupAddress;
+        $shipment->pickup_city = $pickupCity ?: 'Origin';
+        $shipment->pickup_state = $pickupState;
+        $shipment->pickup_pincode = $pickupPincode;
 
         if ($isInternational) {
             $routing = ['serviceable' => true, 'fulfillment_type' => 'external', 'provider_id' => null];
@@ -241,6 +296,12 @@ class SellerShipmentController extends Controller
         $shipment->delivery_address = $validated['delivery_address'];
         $shipment->delivery_city = $validated['delivery_city'];
         $shipment->delivery_pincode = $validated['delivery_pincode'];
+        $shipment->pickup_name = $validated['pickup_name'];
+        $shipment->pickup_phone = $validated['pickup_phone'];
+        $shipment->pickup_address = $validated['pickup_address'];
+        $shipment->pickup_city = $validated['pickup_city'];
+        $shipment->pickup_state = $validated['pickup_state'];
+        $shipment->pickup_pincode = $validated['pickup_pincode'];
         $shipment->weight_kg = $validated['weight_kg'];
         $shipment->length_cm = $request->input('length_cm');
         $shipment->width_cm = $request->input('width_cm');
@@ -250,7 +311,8 @@ class SellerShipmentController extends Controller
         $shipment->delivery_landmark = $request->input('delivery_landmark');
         $shipment->delivery_state = $request->input('delivery_state');
         $shipment->is_cod = $is_cod;
-        $shipment->cod_amount = $request->input('cod_amount');
+        $shipment->payment_type = $is_cod ? 'COD' : 'Prepaid';
+        $shipment->cod_amount = $request->input('cod_amount') ?? ($is_cod ? ($validated['invoice_value'] ?? 0) : null);
         $shipment->invoice_value = $validated['invoice_value'] ?? 0;
         $shipment->total_amount = $totalAmount;
 
@@ -291,11 +353,15 @@ class SellerShipmentController extends Controller
         if ($validated['shipment_type'] == 'B2B') {
             $shipment->vehicle_type = $validated['vehicle_type'] ?? null;
         }
+        if ($request->filled('eway_bill_number')) {
+            $shipment->eway_bill_number = trim($request->input('eway_bill_number'));
+        }
         if ($validated['shipment_type'] == 'International') {
             $shipment->destination_country = $validated['destination_country'] ?? null;
             $shipment->customs_value = $validated['customs_value'] ?? null;
             $shipment->hs_code = $validated['hs_code'] ?? null;
             $shipment->is_cod = false;
+            $shipment->payment_type = 'Prepaid';
         }
 
         $shipment->save();
@@ -360,7 +426,7 @@ class SellerShipmentController extends Controller
 
             $shipment = new Shipment();
             $shipment->user_id = $user->id;
-            $shipment->awb_number = 'OSC' . strtoupper(Str::random(8));
+            $shipment->awb_number = app(\App\Services\AwbGeneratorService::class)->generateUniqueAwb();
             $shipment->shipment_type = $data['shipment_type'] ?? 'B2C';
             $shipment->receiver_name = $data['receiver_name'] ?? 'Customer';
             $shipment->receiver_phone = $data['receiver_phone'] ?? '9999999999';
@@ -397,38 +463,56 @@ class SellerShipmentController extends Controller
         // Grouped status counts for tabs
         $counts = [
             'new' => \App\Models\Shipment::where('user_id', $userId)->whereIn('status', ['new', 'New', 'Manifested', 'manifested', 'Booked', 'booked', 'pending', 'new order'])->count(),
-            'pickups' => \App\Models\Shipment::where('user_id', $userId)->whereIn('status', ['pickup_scheduled', 'Pickup Scheduled', 'pickups', 'Pickups', 'pickup_assigned'])->count(),
-            'transit' => \App\Models\Shipment::where('user_id', $userId)->whereIn('status', ['in_transit', 'In Transit', 'transit', 'Transit', 'In-Transit'])->count(),
+            'pickups' => \App\Models\Shipment::where('user_id', $userId)->where(function($q) {
+                $q->where('status', 'LIKE', 'pickup%')->orWhere('status', 'LIKE', 'Pickup%');
+            })->count(),
+            'transit' => \App\Models\Shipment::where('user_id', $userId)->where(function($q) {
+                $q->whereIn('status', ['in_transit', 'In Transit', 'transit', 'Transit', 'In-Transit', 'received', 'Received', 'out_for_delivery', 'Out for Delivery', 'ofd', 'OFD'])
+                  ->orWhere('status', 'LIKE', 'out for delivery%')->orWhere('status', 'LIKE', 'Out for Delivery%');
+            })->count(),
             'out_for_delivery' => \App\Models\Shipment::where('user_id', $userId)->whereIn('status', ['out_for_delivery', 'Out for Delivery', 'ofd', 'OFD'])->count(),
             'delivered' => \App\Models\Shipment::where('user_id', $userId)->whereIn('status', ['delivered', 'Delivered', 'DELIVERED'])->count(),
-            'rto' => \App\Models\Shipment::where('user_id', $userId)->whereIn('status', ['rto', 'RTO', 'rto_transit', 'RTO In-Transit', 'rto_delivered', 'RTO Delivered', 'rto in-transit', 'rto delivered'])->count(),
+            'rto' => \App\Models\Shipment::where('user_id', $userId)->where(function($q) {
+                $q->where('status', 'LIKE', 'RTO%')->orWhere('status', 'LIKE', 'rto%');
+            })->count(),
             'ndr' => \App\Models\Shipment::where('user_id', $userId)->whereIn('status', ['ndr', 'NDR', 'action_required', 'undelivered', 'Undelivered'])->count(),
             'lost' => \App\Models\Shipment::where('user_id', $userId)->whereIn('status', ['lost', 'Lost', 'damaged', 'Damaged'])->count(),
-            'cancelled' => \App\Models\Shipment::where('user_id', $userId)->whereIn('status', ['cancelled', 'Cancelled', 'CANCELLED'])->count(),
+            'cancelled' => \App\Models\Shipment::where('user_id', $userId)->where(function($q) {
+                $q->where('status', 'LIKE', 'cancel%')->orWhere('status', 'LIKE', 'Cancel%');
+            })->count(),
             'all' => \App\Models\Shipment::where('user_id', $userId)->count(),
         ];
 
         // Status filter
         if ($request->filled('status') && $request->status !== 'all') {
             $status = strtolower(trim($request->status));
-            if (in_array($status, ['pickups', 'pickup_scheduled', 'pickup scheduled', 'pickup_assigned'])) {
-                $query->whereIn('status', ['pickup_scheduled', 'Pickup Scheduled', 'pickups', 'Pickups', 'pickup_assigned']);
-            } elseif (in_array($status, ['transit', 'in_transit', 'in transit'])) {
-                $query->whereIn('status', ['in_transit', 'In Transit', 'transit', 'Transit', 'In-Transit']);
+            if (in_array($status, ['pickups', 'pickup_scheduled', 'pickup scheduled', 'pickup_assigned', 'pickup pending', 'pickup_pending']) || str_starts_with($status, 'pickup')) {
+                $query->where(function($q) {
+                    $q->where('status', 'LIKE', 'pickup%')->orWhere('status', 'LIKE', 'Pickup%');
+                });
+            } elseif (in_array($status, ['transit', 'in_transit', 'in transit', 'out_for_delivery', 'ofd', 'out for delivery'])) {
+                $query->where(function($q) {
+                    $q->whereIn('status', ['in_transit', 'In Transit', 'transit', 'Transit', 'In-Transit', 'received', 'Received', 'out_for_delivery', 'Out for Delivery', 'ofd', 'OFD'])
+                      ->orWhere('status', 'LIKE', 'out for delivery%')->orWhere('status', 'LIKE', 'Out for Delivery%');
+                });
             } elseif (in_array($status, ['out_for_delivery', 'ofd', 'out for delivery'])) {
                 $query->whereIn('status', ['out_for_delivery', 'Out for Delivery', 'ofd', 'OFD', 'Out For Delivery']);
             } elseif (in_array($status, ['delivered', 'deliver'])) {
                 $query->whereIn('status', ['delivered', 'Delivered', 'DELIVERED']);
-            } elseif (in_array($status, ['rto', 'rto_transit', 'rto_delivered', 'rto in-transit', 'rto delivered'])) {
-                $query->whereIn('status', ['rto', 'RTO', 'rto_transit', 'RTO In-Transit', 'rto_delivered', 'RTO Delivered', 'rto in-transit', 'rto delivered']);
+            } elseif (in_array($status, ['rto', 'rto_transit', 'rto_delivered', 'rto in-transit', 'rto delivered', 'rto initiated', 'rto_initiated']) || str_starts_with($status, 'rto')) {
+                $query->where(function($q) {
+                    $q->where('status', 'LIKE', 'RTO%')->orWhere('status', 'LIKE', 'rto%');
+                });
             } elseif (in_array($status, ['ndr', 'undelivered', 'action_required'])) {
                 $query->whereIn('status', ['ndr', 'NDR', 'action_required', 'undelivered', 'Undelivered']);
             } elseif (in_array($status, ['lost', 'damaged'])) {
                 $query->whereIn('status', ['lost', 'Lost', 'damaged', 'Damaged']);
             } elseif (in_array($status, ['new', 'unshipped', 'manifested', 'booked', 'pending'])) {
                 $query->whereIn('status', ['new', 'New', 'Manifested', 'manifested', 'Booked', 'booked', 'pending', 'new order']);
-            } elseif (in_array($status, ['cancelled', 'cancel'])) {
-                $query->whereIn('status', ['cancelled', 'Cancelled', 'CANCELLED']);
+            } elseif (in_array($status, ['cancelled', 'cancel']) || str_starts_with($status, 'cancel')) {
+                $query->where(function($q) {
+                    $q->where('status', 'LIKE', 'cancel%')->orWhere('status', 'LIKE', 'Cancel%');
+                });
             } else {
                 $query->where('status', 'like', "%{$request->status}%");
             }
@@ -521,27 +605,51 @@ class SellerShipmentController extends Controller
             $courier = $request->input('courier_partner');
             
             if ($newCharge !== null && $courier) {
-                $oldCharge = $shipment->shipping_charge ?? $shipment->total_amount ?? 0;
-                $diff = (float)$newCharge - (float)$oldCharge;
-                
-                if ($diff > 0) {
-                    try {
-                        app(\App\Services\WalletService::class)->deduct(
-                            Auth::id(), 
-                            $diff, 
-                            'Courier Upgrade Upcharge: ' . $courier, 
+                $newCharge = round((float)$newCharge, 2);
+                $payerId = Auth::id();
+
+                // Check how much has already been debited from wallet for this shipment
+                $alreadyDebited = (float) \App\Models\WalletTransaction::where('reference_id', $shipment->awb_number)
+                    ->where('type', 'debit')
+                    ->where('status', 'success')
+                    ->sum('amount');
+
+                if ($alreadyDebited <= 0) {
+                    // Full amount must be deducted as no previous payment was made
+                    if ($newCharge > 0) {
+                        try {
+                            app(\App\Services\WalletService::class)->deduct(
+                                $payerId, 
+                                $newCharge, 
+                                'Shipment Freight Deduction: ' . $courier, 
+                                $shipment->awb_number
+                            );
+                        } catch (\Exception $e) {
+                            return back()->with('error', 'Payment deduction failed: ' . $e->getMessage() . ' Please recharge your wallet.');
+                        }
+                    }
+                } else {
+                    // Only deduct/credit the difference
+                    $diff = round($newCharge - $alreadyDebited, 2);
+                    if ($diff > 0) {
+                        try {
+                            app(\App\Services\WalletService::class)->deduct(
+                                $payerId, 
+                                $diff, 
+                                'Courier Upgrade Upcharge: ' . $courier, 
+                                $shipment->awb_number
+                            );
+                        } catch (\Exception $e) {
+                            return back()->with('error', 'Payment deduction failed: ' . $e->getMessage() . ' Please recharge your wallet.');
+                        }
+                    } elseif ($diff < 0) {
+                        app(\App\Services\WalletService::class)->credit(
+                            $payerId, 
+                            abs($diff), 
+                            'Courier Downgrade Savings: ' . $courier, 
                             $shipment->awb_number
                         );
-                    } catch (\Exception $e) {
-                        return back()->with('error', $e->getMessage());
                     }
-                } elseif ($diff < 0) {
-                    app(\App\Services\WalletService::class)->credit(
-                        Auth::id(), 
-                        abs($diff), 
-                        'Courier Downgrade Savings: ' . $courier, 
-                        $shipment->awb_number
-                    );
                 }
                 
                 $shipment->shipping_charge = $newCharge;
@@ -573,22 +681,31 @@ class SellerShipmentController extends Controller
             return back()->with('error', 'This shipment is already cancelled.');
         }
 
-        $cancellableStatuses = ['new', 'manifested', 'booked', 'pickup_scheduled', 'pending', 'new order'];
+        $cancellableStatuses = ['new', 'manifested', 'booked', 'pickup_scheduled', 'pickup scheduled', 'pickup pending', 'pickup_pending', 'pending', 'new order'];
+        $currentSt = strtolower(trim($shipment->status));
         
-        if (in_array(strtolower(trim($shipment->status)), $cancellableStatuses)) {
+        if (in_array($currentSt, $cancellableStatuses) || str_starts_with($currentSt, 'pickup')) {
             $shipment->status = 'cancelled';
             $shipment->save();
             
+            // Check actual debited amount to refund accurately
+            $alreadyDebited = (float) \App\Models\WalletTransaction::where('reference_id', $shipment->awb_number)
+                ->where('type', 'debit')
+                ->where('status', 'success')
+                ->sum('amount');
+
+            $refundAmount = $alreadyDebited > 0 ? $alreadyDebited : (float)($shipment->total_amount ?? $shipment->shipping_charge ?? 0);
+
             // Refund logic
-            if ($shipment->total_amount > 0) {
+            if ($refundAmount > 0) {
                 $user = Auth::user();
-                $user->wallet_balance += $shipment->total_amount;
+                $user->wallet_balance += $refundAmount;
                 $user->save();
                 
                 // create wallet transaction
                 \App\Models\WalletTransaction::create([
                     'user_id' => $user->id,
-                    'amount' => $shipment->total_amount,
+                    'amount' => $refundAmount,
                     'type' => 'credit',
                     'balance_after' => $user->wallet_balance,
                     'reference_id' => $shipment->awb_number,
@@ -596,6 +713,14 @@ class SellerShipmentController extends Controller
                     'status' => 'success',
                 ]);
             }
+
+            \App\Models\ShipmentEvent::create([
+                'shipment_id' => $shipment->id,
+                'status' => 'Cancelled',
+                'location' => $shipment->pickup_city ?? 'Seller Warehouse',
+                'remarks' => 'Shipment cancelled by Seller. Amount refunded to wallet.'
+            ]);
+
             return back()->with('success', 'Shipment cancelled successfully and amount refunded to wallet.');
         }
 
@@ -609,16 +734,32 @@ class SellerShipmentController extends Controller
         $totalRefund = 0;
         $user = Auth::user();
 
+        $cancellableStatuses = ['new', 'manifested', 'booked', 'pickup_scheduled', 'pickup scheduled', 'pickup pending', 'pickup_pending', 'pending', 'new order'];
+
         foreach ($ids as $id) {
             $shipment = Shipment::where('user_id', $user->id)->where('id', trim($id))->first();
-            if ($shipment && in_array(strtolower($shipment->status), ['new', 'manifested', 'booked'])) {
+            $currentSt = $shipment ? strtolower(trim($shipment->status)) : '';
+            if ($shipment && (in_array($currentSt, $cancellableStatuses) || str_starts_with($currentSt, 'pickup'))) {
                 $shipment->status = 'cancelled';
                 $shipment->save();
                 $count++;
                 
-                if ($shipment->total_amount > 0) {
-                    $totalRefund += $shipment->total_amount;
+                $alreadyDebited = (float) \App\Models\WalletTransaction::where('reference_id', $shipment->awb_number)
+                    ->where('type', 'debit')
+                    ->where('status', 'success')
+                    ->sum('amount');
+
+                $refund = $alreadyDebited > 0 ? $alreadyDebited : (float)($shipment->total_amount ?? $shipment->shipping_charge ?? 0);
+                if ($refund > 0) {
+                    $totalRefund += $refund;
                 }
+
+                \App\Models\ShipmentEvent::create([
+                    'shipment_id' => $shipment->id,
+                    'status' => 'Cancelled',
+                    'location' => $shipment->pickup_city ?? 'Seller Warehouse',
+                    'remarks' => 'Shipment cancelled in bulk by Seller.'
+                ]);
             }
         }
 
@@ -645,7 +786,10 @@ class SellerShipmentController extends Controller
      */
     private function authorizeShipmentAccess(string $awb): Shipment
     {
-        $shipment = \App\Models\Shipment::where('awb_number', $awb)->first();
+        $trimmedAwb = trim($awb);
+        $shipment = \App\Models\Shipment::where('awb_number', $trimmedAwb)
+            ->orWhere('id', is_numeric($trimmedAwb) ? (int)$trimmedAwb : 0)
+            ->first();
         if (!$shipment) {
             abort(404, 'Shipment not found.');
         }
@@ -736,6 +880,92 @@ class SellerShipmentController extends Controller
     {
         $shipment = $this->authorizeShipmentAccess($awb);
         return view('seller.invoice', compact('shipment'));
+    }
+
+    public function bulkPrintLabels(Request $request)
+    {
+        $rawIds = $request->input('ids') ?? $request->query('ids');
+        $rawAwbs = $request->input('awbs') ?? $request->query('awbs');
+
+        $ids = [];
+        if (is_array($rawIds)) {
+            $ids = array_filter($rawIds);
+        } elseif (is_string($rawIds) && trim($rawIds) !== '') {
+            $ids = array_filter(array_map('trim', explode(',', $rawIds)));
+        }
+
+        $awbs = [];
+        if (is_array($rawAwbs)) {
+            $awbs = array_filter($rawAwbs);
+        } elseif (is_string($rawAwbs) && trim($rawAwbs) !== '') {
+            $awbs = array_filter(array_map('trim', explode(',', $rawAwbs)));
+        }
+
+        $query = Shipment::where('user_id', Auth::id())->with(['user', 'pickupFranchise']);
+
+        if (!empty($ids)) {
+            $query->whereIn('id', $ids);
+        } elseif (!empty($awbs)) {
+            $query->whereIn('awb_number', $awbs);
+        } else {
+            return back()->with('error', 'Please select at least one shipment to print slips.');
+        }
+
+        $shipments = $query->orderBy('id', 'desc')->get();
+
+        if ($shipments->isEmpty()) {
+            return back()->with('error', 'No eligible shipments found for the selected orders.');
+        }
+
+        $settings = Auth::user()->label_settings ?? [
+            'label_type' => 'thermal',
+            'enable_product_name' => true,
+            'enable_consignee_contact' => true,
+            'enable_consignee_address' => true,
+            'enable_support_contact' => true,
+            'enable_support_email' => true,
+            'enable_rto_address' => true,
+        ];
+
+        $generator = null;
+        if (class_exists(\Picqer\Barcode\BarcodeGeneratorSVG::class)) {
+            try {
+                $generator = new \Picqer\Barcode\BarcodeGeneratorSVG();
+            } catch (\Throwable $e) {
+                $generator = null;
+            }
+        }
+
+        $items = [];
+        foreach ($shipments as $shipment) {
+            $barcode = null;
+            if ($generator && !empty($shipment->awb_number)) {
+                try {
+                    $barcode = $generator->getBarcode($shipment->awb_number, $generator::TYPE_CODE_128, 2, 60);
+                } catch (\Throwable $e) {
+                    $barcode = null;
+                }
+            }
+            $items[] = [
+                'shipment' => $shipment,
+                'barcode' => $barcode,
+            ];
+        }
+
+        $idsString = implode(',', $shipments->pluck('id')->toArray());
+
+        if ($request->query('download') === 'pdf' || $request->input('download') === 'pdf' || $request->query('format') === 'pdf') {
+            if (class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
+                try {
+                    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('seller.bulk-labels', compact('items', 'settings', 'idsString'));
+                    return $pdf->download("bulk-shipment-slips-" . count($items) . "-orders.pdf");
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error("Bulk PDF generation failed: " . $e->getMessage());
+                }
+            }
+        }
+
+        return view('seller.bulk-labels', compact('items', 'settings', 'idsString'));
     }
 }
 

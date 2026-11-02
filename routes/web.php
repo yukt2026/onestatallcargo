@@ -168,8 +168,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/shipments', [\App\Http\Controllers\AdminShipmentController::class, 'store'])->name('admin.shipments.store');
         Route::get('/shipments/{awb}/label', [\App\Http\Controllers\AdminShipmentController::class, 'printLabel'])->name('admin.shipments.label');
         Route::get('/shipments/{awb}/slip', [\App\Http\Controllers\AdminShipmentController::class, 'printLabel'])->name('admin.shipments.slip');
+        Route::match(['get', 'post'], '/shipments/bulk-print-slips', [\App\Http\Controllers\AdminShipmentController::class, 'bulkPrintLabels'])->name('admin.shipments.bulk-print');
         Route::get('/shipments/{awb}/invoice', [\App\Http\Controllers\AdminShipmentController::class, 'printInvoice'])->name('admin.shipments.invoice');
         Route::get('/shipments/{awb}/lr', [\App\Http\Controllers\AdminShipmentController::class, 'printLR'])->name('admin.shipments.lr');
+        Route::post('/shipments/{id}/cancel', [\App\Http\Controllers\AdminShipmentController::class, 'cancel'])->name('admin.shipments.cancel');
         
         Route::resource('serviceability', \App\Http\Controllers\AdminServiceabilityController::class, ['as' => 'admin']);
         Route::get('/pickups', [\App\Http\Controllers\AdminPickupController::class, 'index'])->name('admin.pickups.index');
@@ -319,6 +321,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/shipments', [\App\Http\Controllers\SellerShipmentController::class, 'index'])->name('seller.shipments.index');
         Route::get('/shipments/{id}/evidence', [\App\Http\Controllers\EvidenceController::class, 'getForShipment'])->name('seller.shipments.evidence');
         Route::post('/shipments/bulk-cancel', [\App\Http\Controllers\SellerShipmentController::class, 'bulkCancel'])->name('seller.shipments.bulk-cancel');
+        Route::match(['get', 'post'], '/shipments/bulk-print-slips', [\App\Http\Controllers\SellerShipmentController::class, 'bulkPrintLabels'])->name('seller.shipments.bulk-print');
         Route::post('/shipments/eway-bill', [\App\Http\Controllers\SellerShipmentController::class, 'updateEwayBill'])->name('seller.shipments.eway');
         Route::get('/shipments/{id}/couriers', [\App\Http\Controllers\SellerShipmentController::class, 'getCouriers'])->name('seller.shipments.couriers');
         Route::post('/shipments/{id}/ship-now', [\App\Http\Controllers\SellerShipmentController::class, 'shipNowAction'])->name('seller.shipments.shipNow');
@@ -337,6 +340,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/weight-freeze/import', [\App\Http\Controllers\SellerWeightFreezeController::class, 'import'])->name('seller.weight.freeze.import');
         // Print Label
         Route::get('/shipment/{awb}/label', [\App\Http\Controllers\SellerShipmentController::class, 'printLabel'])->name('seller.label');
+        Route::get('/shipment/{awb}/slip', [\App\Http\Controllers\SellerShipmentController::class, 'printLabel'])->name('seller.slip');
         Route::get('/shipment/{awb}/lr', [\App\Http\Controllers\SellerShipmentController::class, 'printLR'])->name('seller.lr');
         Route::get('/shipment/{awb}/invoice', [\App\Http\Controllers\SellerShipmentController::class, 'printInvoice'])->name('seller.invoice');
         Route::get('/api-keys', [\App\Http\Controllers\SellerApiController::class, 'index'])->name('seller.api-keys');
@@ -365,6 +369,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/shipments/book', [\App\Http\Controllers\HubShipmentController::class, 'create'])->name('hub.shipments.create');
         Route::post('/shipments/book', [\App\Http\Controllers\HubShipmentController::class, 'store'])->name('hub.shipments.store');
         Route::post('/shipments/bulk-cancel', [\App\Http\Controllers\HubShipmentController::class, 'bulkCancel'])->name('hub.shipments.bulk-cancel');
+        Route::match(['get', 'post'], '/shipments/bulk-print-slips', [\App\Http\Controllers\HubShipmentController::class, 'bulkPrintLabels'])->name('hub.shipments.bulk-print');
         Route::post('/shipments/eway-bill', [\App\Http\Controllers\HubShipmentController::class, 'updateEwayBill'])->name('hub.shipments.eway');
         Route::get('/shipments/{id}/couriers', [\App\Http\Controllers\HubShipmentController::class, 'getCouriers'])->name('hub.shipments.couriers');
         Route::post('/shipments/{id}/ship-now', [\App\Http\Controllers\HubShipmentController::class, 'shipNowAction'])->name('hub.shipments.shipNow');

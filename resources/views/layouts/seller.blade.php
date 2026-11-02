@@ -130,7 +130,7 @@
             <a href="{{ route('seller.shipments.index') }}" class="sidebar-item {{ request()->routeIs('seller.shipments.*') ? 'active' : '' }}" title="Orders">
                 <div class="icon-box relative">
                     <i class="fa-solid fa-box text-base"></i>
-                    @php $newCount = \App\Models\Shipment::where('user_id', Auth::id())->whereIn('status', ['new', 'Manifested', 'Booked', 'booked'])->count(); @endphp
+                    @php $newCount = \App\Models\Shipment::where('user_id', Auth::id())->whereIn('status', ['new', 'New', 'Manifested', 'manifested', 'Booked', 'booked', 'pending', 'new order'])->count(); @endphp
                     @if($newCount > 0)
                         <span class="absolute top-0 right-0 w-2 h-2 rounded-full bg-[#4338ca]"></span>
                     @endif

@@ -92,10 +92,45 @@
 
     <!-- Data Table -->
     <div class="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+        <!-- Floating Bulk Selection Bar -->
+        <div x-show="selectedIds.length > 0" x-transition class="bg-[#1e1b4b] text-white px-5 py-3 flex flex-col sm:flex-row items-center justify-between text-xs font-bold shadow-lg gap-2 sm:gap-0 border-b border-indigo-950">
+            <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                <span class="bg-[#4338ca] px-3 py-1 rounded-full text-[11px]" x-text="selectedIds.length + ' selected'"></span>
+                <span>Selected Orders Actions:</span>
+            </div>
+            <div class="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-start flex-wrap">
+                <!-- Bulk Print Slips -->
+                <form action="{{ route('admin.shipments.bulk-print') }}" method="POST" target="_blank" class="inline">
+                    @csrf
+                    <input type="hidden" name="ids" :value="selectedIds.join(',')">
+                    <button type="submit" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-print text-[11px]"></i>
+                        <span>Print Slips (<span x-text="selectedIds.length"></span>)</span>
+                    </button>
+                </form>
+
+                <!-- Bulk Download PDF -->
+                <form action="{{ route('admin.shipments.bulk-print') }}" method="POST" class="inline">
+                    @csrf
+                    <input type="hidden" name="ids" :value="selectedIds.join(',')">
+                    <input type="hidden" name="download" value="pdf">
+                    <button type="submit" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-file-pdf text-[11px]"></i>
+                        <span>Download PDF</span>
+                    </button>
+                </form>
+
+                <button type="button" @click="selectedIds = []" class="text-gray-300 hover:text-white text-xs underline ml-2">Deselect All</button>
+            </div>
+        </div>
+
         <div class="overflow-x-auto">
             <table class="w-full text-left text-sm whitespace-nowrap">
                 <thead>
                     <tr class="bg-gray-50 text-[10px] font-extrabold uppercase tracking-wider text-gray-500 border-b border-gray-200">
+                        <th class="px-4 py-4 w-10">
+                            <input type="checkbox" @change="toggleAll($event)" :checked="isAllSelected()" class="rounded border-gray-300 accent-[#1e1b4b] cursor-pointer">
+                        </th>
                         <th class="px-6 py-4">AWB Number</th>
                         <th class="px-6 py-4">Date</th>
                         <th class="px-6 py-4">Seller</th>
@@ -109,6 +144,9 @@
                 <tbody class="divide-y divide-gray-50 text-gray-700 font-medium">
                     @forelse($shipments as $shipment)
                         <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-4">
+                                <input type="checkbox" value="{{ $shipment->id }}" x-model="selectedIds" class="rounded border-gray-300 accent-[#1e1b4b] cursor-pointer">
+                            </td>
                             <td class="px-6 py-4">
                                 <span class="font-bold text-[var(--gold-deep)]">{{ $shipment->awb_number }}</span>
                             </td>
@@ -119,18 +157,26 @@
                             <td class="px-6 py-4 font-bold text-gray-900">₹{{ number_format($shipment->total_amount, 2) }}</td>
                             <td class="px-6 py-4">
                                 @php
-                                    $statusColors = [
-                                        'Pending' => 'bg-gray-100 text-gray-800',
-                                        'Pickup Scheduled' => 'bg-amber-50 text-amber-700',
-                                        'Manifested' => 'bg-blue-50 text-blue-700',
-                                        'In Transit' => 'bg-purple-50 text-purple-700',
-                                        'Out for Delivery' => 'bg-orange-50 text-orange-700',
-                                        'Delivered' => 'bg-emerald-50 text-emerald-700',
-                                        'NDR' => 'bg-rose-50 text-rose-700',
-                                        'RTO' => 'bg-rose-50 text-rose-700',
-                                        'Cancelled' => 'bg-red-100 text-red-800',
-                                    ];
-                                    $color = $statusColors[$shipment->status] ?? 'bg-gray-100 text-gray-800';
+                                    $st = strtolower(trim($shipment->status));
+                                    if (in_array($st, ['new', 'manifested', 'booked', 'pending', 'new order'])) {
+                                        $color = 'bg-blue-50 text-blue-700 border border-blue-200';
+                                    } elseif (str_starts_with($st, 'pickup')) {
+                                        $color = 'bg-amber-50 text-amber-700 border border-amber-200';
+                                    } elseif (in_array($st, ['out_for_delivery', 'out for delivery', 'ofd'])) {
+                                        $color = 'bg-cyan-50 text-cyan-700 border border-cyan-200';
+                                    } elseif (in_array($st, ['in_transit', 'transit', 'in transit', 'in-transit', 'received'])) {
+                                        $color = 'bg-purple-50 text-purple-700 border border-purple-200';
+                                    } elseif ($st === 'delivered') {
+                                        $color = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                                    } elseif (str_starts_with($st, 'rto')) {
+                                        $color = 'bg-orange-50 text-orange-700 border border-orange-200';
+                                    } elseif (in_array($st, ['ndr', 'action_required', 'undelivered'])) {
+                                        $color = 'bg-rose-50 text-rose-700 border border-rose-200';
+                                    } elseif (str_starts_with($st, 'cancel')) {
+                                        $color = 'bg-red-50 text-red-700 border border-red-200';
+                                    } else {
+                                        $color = 'bg-gray-100 text-gray-800 border border-gray-200';
+                                    }
                                 @endphp
                                 <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider {{ $color }}">
                                     {{ $shipment->status }}
@@ -204,11 +250,13 @@
                             <h3 class="text-xl font-black text-gray-900 tracking-tight" x-text="activeOrder.awb_number || 'Order Details'"></h3>
                             <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase"
                                   :class="{
-                                      'bg-blue-50 text-blue-700 border border-blue-200': ['new','manifested','booked'].includes((activeOrder.status||'').toLowerCase()),
-                                      'bg-amber-50 text-amber-700 border border-amber-200': ['pickup_scheduled','pickups'].includes((activeOrder.status||'').toLowerCase()),
-                                      'bg-purple-50 text-purple-700 border border-purple-200': ['in_transit','transit'].includes((activeOrder.status||'').toLowerCase()),
+                                      'bg-blue-50 text-blue-700 border border-blue-200': ['new','manifested','booked','pending','new order'].includes((activeOrder.status||'').toLowerCase()),
+                                      'bg-amber-50 text-amber-700 border border-amber-200': (activeOrder.status||'').toLowerCase().startsWith('pickup'),
+                                      'bg-cyan-50 text-cyan-700 border border-cyan-200': ['out_for_delivery','out for delivery','ofd'].includes((activeOrder.status||'').toLowerCase()),
+                                      'bg-purple-50 text-purple-700 border border-purple-200': ['in_transit','transit','in transit','received'].includes((activeOrder.status||'').toLowerCase()),
                                       'bg-emerald-50 text-emerald-700 border border-emerald-200': (activeOrder.status||'').toLowerCase() === 'delivered',
-                                      'bg-rose-50 text-rose-700 border border-rose-200': (activeOrder.status||'').toLowerCase() === 'cancelled'
+                                      'bg-orange-50 text-orange-700 border border-orange-200': (activeOrder.status||'').toLowerCase().startsWith('rto'),
+                                      'bg-rose-50 text-rose-700 border border-rose-200': ['ndr','action_required','undelivered'].includes((activeOrder.status||'').toLowerCase()) || (activeOrder.status||'').toLowerCase().startsWith('cancel')
                                   }"
                                   x-text="activeOrder.status || 'Manifested'">
                             </span>
@@ -319,9 +367,21 @@
             Alpine.data('adminShipments', () => ({
                 showOrderModal: false, 
                 activeOrder: {}, 
+                selectedIds: [],
+                allRowIds: [{{ $shipments->pluck('id')->implode(',') }}],
                 openOrderDetails(order) { 
                     this.activeOrder = order; 
                     this.showOrderModal = true; 
+                },
+                toggleAll(e) {
+                    if (e.target.checked) {
+                        this.selectedIds = [...this.allRowIds];
+                    } else {
+                        this.selectedIds = [];
+                    }
+                },
+                isAllSelected() {
+                    return this.allRowIds.length > 0 && this.selectedIds.length === this.allRowIds.length;
                 }
             }));
         });

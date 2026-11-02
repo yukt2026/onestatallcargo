@@ -16,8 +16,12 @@ class AdminServiceabilityController extends Controller
         $query = ServiceablePincode::with('franchise');
         
         if ($request->filled('search')) {
-            $query->where('pincode', 'like', "%{$request->search}%")
-                  ->orWhere('city', 'like', "%{$request->search}%");
+            $search = trim($request->search);
+            $query->where(function($q) use ($search) {
+                $q->where('pincode', 'like', "%{$search}%")
+                  ->orWhere('city', 'like', "%{$search}%")
+                  ->orWhere('state', 'like', "%{$search}%");
+            });
         }
         
         $pincodes = $query->paginate(20)->withQueryString();
@@ -61,5 +65,20 @@ class AdminServiceabilityController extends Controller
     {
         ServiceablePincode::destroy($id);
         return back()->with('success', 'Pincode deleted successfully');
+    }
+
+    public function create()
+    {
+        return redirect()->route('admin.serviceability.index');
+    }
+
+    public function show($id)
+    {
+        return redirect()->route('admin.serviceability.index');
+    }
+
+    public function edit($id)
+    {
+        return redirect()->route('admin.serviceability.index');
     }
 }

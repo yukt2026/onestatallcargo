@@ -377,4 +377,89 @@ class FranchiseShipmentSlipDownloadTest extends TestCase
         // B2C / B2B shipment type indicator is removed from under barcode
         $res->assertDontSee('<div class="shipment-type">', false);
     }
+
+    public function test_shipping_slip_shows_customer_address_and_mobile_and_hides_seller_mobile_with_support_details_at_bottom(): void
+    {
+        $this->sellerUser->update([
+            'company_name' => 'Acme Express Retail',
+            'phone' => '8384868758',
+            'support_phone' => '8384868758',
+            'email' => 'rishisolidgroup@gmail.com',
+            'gstin' => '07AAAAA1234A1Z5',
+            'company_address' => 'KK Market, Shop no 7',
+            'company_city' => 'Mumbai',
+            'company_state' => 'Maharashtra',
+            'company_pincode' => '400001',
+        ]);
+
+        $shipment = Shipment::create([
+            'awb_number' => 'AWB-88889999',
+            'order_id' => '764403747',
+            'user_id' => $this->sellerUser->id,
+            'franchise_id' => $this->district1Franchise->id,
+            'receiver_name' => 'Ujjwal kumawat',
+            'receiver_phone' => '7498355538',
+            'delivery_address' => 'Khatamla bus stand khatamla Rajsamand',
+            'delivery_city' => 'Udaipur',
+            'delivery_state' => 'Rajasthan',
+            'delivery_pincode' => '313324',
+            'pickup_address' => 'KK Market, Shop no 7',
+            'pickup_city' => 'Mumbai',
+            'pickup_pincode' => '400001',
+            'product_name' => 'Watch',
+            'product_qty' => 1,
+            'weight_kg' => 0.5,
+            'invoice_value' => 1999.00,
+            'cod_amount' => 1999.00,
+            'is_cod' => 1,
+            'total_amount' => 150.00,
+            'shipping_charge' => 150.00,
+            'status' => 'Manifested',
+            'shipment_type' => 'B2C',
+        ]);
+
+        // Hub downloads slip
+        $hubRes = $this->actingAs($this->district1Manager)
+            ->get(route('hub.label', $shipment->awb_number));
+        $hubRes->assertStatus(200);
+
+        // 1. Customer Name, complete Address and Mobile must both be clearly visible
+        $hubRes->assertSee('Consignee Name:');
+        $hubRes->assertSee('Ujjwal kumawat');
+        $hubRes->assertSee('Shipping Address:');
+        $hubRes->assertSee('Khatamla bus stand khatamla Rajsamand');
+        $hubRes->assertSee('313324');
+        $hubRes->assertSee('7498355538');
+
+        // 2. Return Address is visible, but seller mobile number is hidden
+        $hubRes->assertSee('Return Address:');
+        $hubRes->assertSee('Acme Express Retail');
+        $hubRes->assertSee('KK Market, Shop no 7');
+        $hubRes->assertSee('**********');
+
+        // 3. Support Details at bottom shows Seller Email and Contact number
+        $hubRes->assertSee('Support Details');
+        $hubRes->assertSee('Contact No: 8384868758');
+        $hubRes->assertSee('Email ID: rishisolidgroup@gmail.com');
+
+        // Seller downloads slip
+        $sellerRes = $this->actingAs($this->sellerUser)
+            ->get(route('seller.label', $shipment->awb_number));
+        $sellerRes->assertStatus(200);
+        $sellerRes->assertSee('Khatamla bus stand khatamla Rajsamand');
+        $sellerRes->assertSee('7498355538');
+        $sellerRes->assertSee('**********');
+        $sellerRes->assertSee('Support Details');
+        $sellerRes->assertSee('Contact No: 8384868758');
+
+        // Admin downloads slip
+        $adminRes = $this->actingAs($this->adminUser)
+            ->get(route('admin.shipments.label', $shipment->awb_number));
+        $adminRes->assertStatus(200);
+        $adminRes->assertSee('Khatamla bus stand khatamla Rajsamand');
+        $adminRes->assertSee('7498355538');
+        $adminRes->assertSee('**********');
+        $adminRes->assertSee('Support Details');
+        $adminRes->assertSee('Contact No: 8384868758');
+    }
 }

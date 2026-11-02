@@ -40,10 +40,10 @@ class AdminHubController extends Controller
         $shipmentStats = Shipment::selectRaw('
             franchise_id,
             COUNT(*) as total_count,
-            SUM(CASE WHEN status = "Delivered" THEN 1 ELSE 0 END) as delivered_count,
-            SUM(CASE WHEN status IN ("Pending", "Manifested", "In Transit", "Received", "Out for Delivery", "Pickup Scheduled") THEN 1 ELSE 0 END) as pending_count,
-            SUM(CASE WHEN status = "NDR" OR status LIKE "RTO%" THEN 1 ELSE 0 END) as ndr_rto_count,
-            SUM(CASE WHEN status = "Delivered" AND (payment_type = "COD" OR is_cod = 1) AND (cod_remitted = 0 OR cod_remitted IS NULL) THEN COALESCE(cod_amount, invoice_value, 0) ELSE 0 END) as pending_cod
+            SUM(CASE WHEN LOWER(TRIM(status)) = "delivered" THEN 1 ELSE 0 END) as delivered_count,
+            SUM(CASE WHEN LOWER(TRIM(status)) IN ("pending", "manifested", "in transit", "in_transit", "transit", "received", "out for delivery", "out_for_delivery", "pickup scheduled", "pickup_scheduled", "new", "booked") THEN 1 ELSE 0 END) as pending_count,
+            SUM(CASE WHEN LOWER(TRIM(status)) = "ndr" OR status LIKE "RTO%" OR status LIKE "rto%" THEN 1 ELSE 0 END) as ndr_rto_count,
+            SUM(CASE WHEN LOWER(TRIM(status)) = "delivered" AND (payment_type = "COD" OR is_cod = 1) AND (cod_remitted = 0 OR cod_remitted IS NULL) THEN COALESCE(cod_amount, invoice_value, 0) ELSE 0 END) as pending_cod
         ')
         ->whereIn('franchise_id', $allFranchiseIds)
         ->groupBy('franchise_id')
@@ -115,10 +115,10 @@ class AdminHubController extends Controller
             if (!empty($subIds)) {
                 $directStateQuery->whereNotIn('franchise_id', $subIds);
             }
-            $directDelivered = (clone $directStateQuery)->where('status', 'Delivered')->count();
-            $directPending = (clone $directStateQuery)->whereIn('status', ['Pending', 'Manifested', 'In Transit', 'Received', 'Out for Delivery', 'Pickup Scheduled'])->count();
-            $directNdrRto = (clone $directStateQuery)->where(function($q) { $q->where('status', 'NDR')->orWhere('status', 'LIKE', 'RTO%'); })->count();
-            $directCod = (clone $directStateQuery)->where('status', 'Delivered')->where(function($q) { $q->where('payment_type', 'COD')->orWhere('is_cod', 1); })->where(function($q) { $q->where('cod_remitted', 0)->orWhereNull('cod_remitted'); })->sum(DB::raw('COALESCE(cod_amount, invoice_value, 0)'));
+            $directDelivered = (clone $directStateQuery)->whereIn('status', ['Delivered', 'delivered', 'DELIVERED'])->count();
+            $directPending = (clone $directStateQuery)->whereIn('status', ['Pending', 'pending', 'Manifested', 'manifested', 'In Transit', 'in_transit', 'transit', 'Received', 'Out for Delivery', 'out_for_delivery', 'Pickup Scheduled', 'pickup_scheduled', 'new', 'booked'])->count();
+            $directNdrRto = (clone $directStateQuery)->where(function($q) { $q->where('status', 'NDR')->orWhere('status', 'ndr')->orWhere('status', 'LIKE', 'RTO%')->orWhere('status', 'LIKE', 'rto%'); })->count();
+            $directCod = (clone $directStateQuery)->whereIn('status', ['Delivered', 'delivered', 'DELIVERED'])->where(function($q) { $q->where('payment_type', 'COD')->orWhere('is_cod', 1); })->where(function($q) { $q->where('cod_remitted', 0)->orWhereNull('cod_remitted'); })->sum(DB::raw('COALESCE(cod_amount, invoice_value, 0)'));
             $directTotal = $directStateQuery->count();
 
             $stateRoyalty = (float) ($commissionStats->get($stateF->id)?->credited_amount ?? 0);

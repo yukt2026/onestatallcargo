@@ -323,10 +323,13 @@ class ChannelIntegrationService
 
         $pickupAddress = $warehouse->address ?? 'Origin Hub / Warehouse';
         $pickupCity = $warehouse->city ?? 'Origin City';
+        $pickupState = $warehouse->state ?? null;
         $pickupPincode = $warehouse->pincode ?? '110001';
+        $pickupName = $warehouse ? ($warehouse->contact_person ? $warehouse->contact_person . ' (' . $warehouse->name . ')' : $warehouse->name) : null;
+        $pickupPhone = $warehouse->phone ?? null;
 
         // Generate AWB
-        $awbNumber = 'OSC' . strtoupper(Str::random(9));
+        $awbNumber = app(\App\Services\AwbGeneratorService::class)->generateUniqueAwb();
 
         $shipment = Shipment::create([
             'user_id' => $channel->user_id,
@@ -341,8 +344,11 @@ class ChannelIntegrationService
             'delivery_city' => $deliveryCity,
             'delivery_pincode' => $deliveryPincode,
             'delivery_state' => $deliveryState,
+            'pickup_name' => $pickupName,
+            'pickup_phone' => $pickupPhone,
             'pickup_address' => $pickupAddress,
             'pickup_city' => $pickupCity,
+            'pickup_state' => $pickupState,
             'pickup_pincode' => $pickupPincode,
             'weight_kg' => 0.5,
             'invoice_value' => $totalAmount,
@@ -413,9 +419,12 @@ class ChannelIntegrationService
 
         $pickupAddress = $warehouse->address ?? 'Origin Hub / Warehouse';
         $pickupCity = $warehouse->city ?? 'Origin City';
+        $pickupState = $warehouse->state ?? null;
         $pickupPincode = $warehouse->pincode ?? '110001';
+        $pickupName = $warehouse ? ($warehouse->contact_person ? $warehouse->contact_person . ' (' . $warehouse->name . ')' : $warehouse->name) : null;
+        $pickupPhone = $warehouse->phone ?? null;
 
-        $awbNumber = 'OSC' . strtoupper(Str::random(9));
+        $awbNumber = app(\App\Services\AwbGeneratorService::class)->generateUniqueAwb();
 
         $shipment = Shipment::create([
             'user_id' => $channel->user_id,
@@ -430,8 +439,11 @@ class ChannelIntegrationService
             'delivery_city' => $deliveryCity,
             'delivery_pincode' => $deliveryPincode,
             'delivery_state' => $deliveryState,
+            'pickup_name' => $pickupName,
+            'pickup_phone' => $pickupPhone,
             'pickup_address' => $pickupAddress,
             'pickup_city' => $pickupCity,
+            'pickup_state' => $pickupState,
             'pickup_pincode' => $pickupPincode,
             'weight_kg' => 0.5,
             'invoice_value' => $totalAmount,
@@ -508,10 +520,16 @@ class ChannelIntegrationService
         }
 
         $warehouse = Warehouse::where('user_id', $channel->user_id)->orderByDesc('is_default')->first();
+        $pickupName = $payload['pickup_name'] ?? ($warehouse ? ($warehouse->contact_person ? $warehouse->contact_person . ' (' . $warehouse->name . ')' : $warehouse->name) : null);
+        $pickupPhone = $payload['pickup_phone'] ?? ($warehouse->phone ?? null);
+        $pickupAddress = $payload['pickup_address'] ?? ($warehouse->address ?? 'Origin Hub');
+        $pickupCity = $payload['pickup_city'] ?? ($warehouse->city ?? 'Origin City');
+        $pickupState = $payload['pickup_state'] ?? ($warehouse->state ?? null);
+        $pickupPincode = $payload['pickup_pincode'] ?? ($warehouse->pincode ?? '110001');
 
         Shipment::create([
             'user_id' => $channel->user_id,
-            'awb_number' => 'OSC' . strtoupper(Str::random(9)),
+            'awb_number' => app(\App\Services\AwbGeneratorService::class)->generateUniqueAwb(),
             'order_id' => $formattedOrderId,
             'external_shipment_id' => $orderId,
             'shipment_type' => 'B2C',
@@ -522,9 +540,12 @@ class ChannelIntegrationService
             'delivery_city' => $payload['delivery_city'] ?? $payload['city'] ?? 'City',
             'delivery_pincode' => $payload['delivery_pincode'] ?? $payload['pincode'] ?? '110001',
             'delivery_state' => $payload['delivery_state'] ?? $payload['state'] ?? '',
-            'pickup_address' => $warehouse->address ?? 'Origin Hub',
-            'pickup_city' => $warehouse->city ?? 'Origin City',
-            'pickup_pincode' => $warehouse->pincode ?? '110001',
+            'pickup_name' => $pickupName,
+            'pickup_phone' => $pickupPhone,
+            'pickup_address' => $pickupAddress,
+            'pickup_city' => $pickupCity,
+            'pickup_state' => $pickupState,
+            'pickup_pincode' => $pickupPincode,
             'weight_kg' => (float)($payload['weight_kg'] ?? 0.5),
             'invoice_value' => (float)($payload['invoice_value'] ?? $payload['total'] ?? 0),
             'is_cod' => (bool)($payload['is_cod'] ?? false),

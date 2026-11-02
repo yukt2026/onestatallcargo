@@ -6,8 +6,25 @@ use Illuminate\Http\Request;
 
 class TrackController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $awb = $request->query('awb') ?? $request->query('awb_number');
+        if ($awb) {
+            $searchAwb = strtoupper(trim($awb));
+            $numericPart = preg_replace('/^AWB-?/i', '', $searchAwb);
+
+            $shipment = Shipment::where('awb_number', $searchAwb)
+                ->orWhere('awb_number', 'AWB-' . $numericPart)
+                ->orWhere('awb_number', $numericPart)
+                ->with(['events' => function($q) {
+                    $q->orderBy('created_at', 'desc');
+                }])->first();
+
+            if ($shipment) {
+                return view('track', compact('shipment'));
+            }
+        }
+
         return view('track');
     }
 
@@ -15,9 +32,15 @@ class TrackController extends Controller
     {
         $request->validate(['awb_number' => 'required|string']);
         
-        $shipment = Shipment::where('awb_number', strtoupper($request->awb_number))->with(['events' => function($q) {
-            $q->orderBy('created_at', 'desc');
-        }])->first();
+        $searchAwb = strtoupper(trim($request->awb_number));
+        $numericPart = preg_replace('/^AWB-?/i', '', $searchAwb);
+
+        $shipment = Shipment::where('awb_number', $searchAwb)
+            ->orWhere('awb_number', 'AWB-' . $numericPart)
+            ->orWhere('awb_number', $numericPart)
+            ->with(['events' => function($q) {
+                $q->orderBy('created_at', 'desc');
+            }])->first();
 
         if (!$shipment) {
             return back()->with('error', 'No shipment found with that AWB Number.');

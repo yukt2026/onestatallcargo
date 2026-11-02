@@ -116,12 +116,12 @@ class HubReportController extends Controller
 
         // Summary Aggregates
         $totalBookings = (clone $query)->count();
-        $delivered     = (clone $query)->where('status', 'Delivered')->count();
-        $inTransit     = (clone $query)->whereIn('status', ['In Transit', 'Out for Delivery', 'Manifested', 'Received', 'Pickup Scheduled'])->count();
+        $delivered     = (clone $query)->whereIn('status', ['Delivered', 'delivered', 'DELIVERED'])->count();
+        $inTransit     = (clone $query)->whereIn('status', ['In Transit', 'in_transit', 'transit', 'Transit', 'In-Transit', 'Out for Delivery', 'out_for_delivery', 'Manifested', 'manifested', 'Received', 'Pickup Scheduled', 'pickup_scheduled'])->count();
         $rto           = (clone $query)->where(function($q) {
-            $q->where('status', 'RTO')->orWhere('status', 'LIKE', 'RTO%');
+            $q->where('status', 'LIKE', 'RTO%')->orWhere('status', 'LIKE', 'rto%');
         })->count();
-        $ndr           = (clone $query)->where('status', 'NDR')->count();
+        $ndr           = (clone $query)->whereIn('status', ['NDR', 'ndr', 'Action Required', 'Undelivered'])->count();
         
         // Pickups vs Deliveries logic
         $scope = $this->getAuthScope();
@@ -167,7 +167,7 @@ class HubReportController extends Controller
         }
 
         // Pending COD calculated using merchandise COD value
-        $pendingCod = (clone $query)->where('status', 'Delivered')
+        $pendingCod = (clone $query)->whereIn('status', ['Delivered', 'delivered', 'DELIVERED'])
             ->where(function($q) { $q->where('payment_type', 'COD')->orWhere('is_cod', 1); })
             ->where(function($q) { $q->where('cod_remitted', 0)->orWhereNull('cod_remitted'); })
             ->sum(DB::raw('COALESCE(cod_amount, invoice_value, 0)')) ?? 0;
@@ -176,9 +176,10 @@ class HubReportController extends Controller
         $tableQuery = clone $query;
 
         if ($request->filled('status')) {
-            if ($request->status === 'RTO') {
+            $st = strtolower(trim($request->status));
+            if ($st === 'rto' || str_starts_with($st, 'rto')) {
                 $tableQuery->where(function($q) {
-                    $q->where('status', 'RTO')->orWhere('status', 'LIKE', 'RTO%');
+                    $q->where('status', 'LIKE', 'RTO%')->orWhere('status', 'LIKE', 'rto%');
                 });
             } else {
                 $tableQuery->where('status', $request->status);

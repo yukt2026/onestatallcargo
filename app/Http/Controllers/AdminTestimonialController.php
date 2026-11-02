@@ -62,5 +62,10 @@ class AdminTestimonialController extends Controller
         $testimonial->delete();
         return redirect()->route('admin.testimonials.index')->with('success', 'Testimonial deleted successfully.');
     }
+
+    public function show(Testimonial $testimonial)
+    {
+        return redirect()->route('admin.testimonials.edit', $testimonial->id);
+    }
 }
 
