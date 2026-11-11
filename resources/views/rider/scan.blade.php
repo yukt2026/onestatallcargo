@@ -65,9 +65,9 @@
                         <div class="absolute left-1 top-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-blue-100"></div>
                         <div class="absolute left-2 top-4 bottom-0 w-0.5 bg-gray-200" style="height: calc(100% + 1rem);"></div>
                         <h4 class="text-xs font-extrabold text-gray-900 uppercase tracking-wider mb-1">Pickup From</h4>
-                        <div class="text-sm font-bold text-gray-800">{{ $shipment->user->company_name ?? $shipment->user->name ?? 'Seller' }}</div>
-                        <div class="text-xs text-gray-500 mt-0.5">{{ $shipment->pickup_address }}, {{ $shipment->pickup_city }}, {{ $shipment->pickup_state }} - {{ $shipment->pickup_pincode }}</div>
-                        <div class="mt-1 text-xs font-semibold text-blue-600"><i class="fa-solid fa-phone w-4"></i> {{ $shipment->user->phone ?? 'N/A' }}</div>
+                        <div class="text-sm font-bold text-gray-800">{{ !empty(trim($shipment->pickup_name ?? '')) ? $shipment->pickup_name : ($shipment->user->company_name ?? $shipment->user->name ?? 'Seller') }}</div>
+                        <div class="text-xs text-gray-500 mt-0.5">{{ !empty(trim($shipment->pickup_address ?? '')) ? $shipment->pickup_address : 'Registered Warehouse' }}, {{ $shipment->pickup_city ?? '' }}{{ !empty($shipment->pickup_state) ? ', ' . $shipment->pickup_state : '' }} - {{ $shipment->pickup_pincode ?? '' }}</div>
+                        <div class="mt-1 text-xs font-semibold text-blue-600"><i class="fa-solid fa-phone w-4"></i> {{ $shipment->pickup_phone ?? $shipment->user->phone ?? 'N/A' }}</div>
                     </div>
                     
                     <!-- Delivery (Customer) -->

@@ -193,8 +193,14 @@
                                     <button type="button" @click.prevent='openOrderDetails({ 
                                         awb_number: "{{ $shipment->awb_number }}", 
                                         status: "{{ $shipment->status }}", 
-                                        seller_name: @json($shipment->user ? $shipment->user->name : "N/A"),
+                                        seller_name: @json($shipment->user ? ($shipment->user->company_name ?: $shipment->user->name) : "N/A"),
                                         seller_email: @json($shipment->user ? $shipment->user->email : ""),
+                                        pickup_name: @json(!empty(trim($shipment->pickup_name ?? '')) ? $shipment->pickup_name : (optional($shipment->user)->company_name ?: optional($shipment->user)->name ?: 'Primary Hub')),
+                                        pickup_address: @json(!empty(trim($shipment->pickup_address ?? '')) ? $shipment->pickup_address : (optional($shipment->user)->company_address ?: 'Origin Address')),
+                                        pickup_city: "{{ $shipment->pickup_city ?? '' }}",
+                                        pickup_state: "{{ $shipment->pickup_state ?? '' }}",
+                                        pickup_pincode: "{{ $shipment->pickup_pincode ?? '' }}",
+                                        pickup_phone: "{{ $shipment->pickup_phone ?? optional($shipment->user)->phone ?? '' }}",
                                         receiver_name: "{{ $shipment->receiver_name }}", 
                                         receiver_phone: "{{ $shipment->receiver_phone }}", 
                                         delivery_address: @json($shipment->delivery_address), 
@@ -268,9 +274,20 @@
                     </button>
                 </div>
 
-                <!-- Modal Body Grid (3 Sections) -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                <!-- Modal Body Grid (4 Sections) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
                     
+                    <!-- Pickup Details -->
+                    <div class="p-4 rounded-2xl border border-gray-100 bg-[#f8fafc]">
+                        <div class="font-bold text-gray-400 text-[10px] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                            <i class="fa-solid fa-warehouse text-[#4338ca]"></i> Pickup Details
+                        </div>
+                        <div class="font-bold text-gray-900 text-sm mb-1" x-text="activeOrder.pickup_name || 'Primary Hub'"></div>
+                        <div class="text-gray-600 leading-relaxed" x-text="activeOrder.pickup_address || 'Origin Address'"></div>
+                        <div class="text-gray-600 font-semibold mt-1" x-text="(activeOrder.pickup_city || '') + (activeOrder.pickup_state ? ', ' + activeOrder.pickup_state : '') + (activeOrder.pickup_pincode ? ' - ' + activeOrder.pickup_pincode : '')"></div>
+                        <div class="text-gray-500 mt-2 font-mono" x-show="activeOrder.pickup_phone"><i class="fa-solid fa-phone text-gray-400 mr-1"></i> <span x-text="activeOrder.pickup_phone"></span></div>
+                    </div>
+
                     <!-- Customer Details -->
                     <div class="p-4 rounded-2xl border border-gray-100 bg-[#f8fafc]">
                         <div class="font-bold text-gray-400 text-[10px] uppercase tracking-wider mb-2 flex items-center gap-1.5">
@@ -282,25 +299,16 @@
                         <div class="text-gray-500 mt-2 font-mono"><i class="fa-solid fa-phone text-gray-400 mr-1"></i> <span x-text="activeOrder.receiver_phone || 'N/A'"></span></div>
                     </div>
 
-                    
-                    <!-- Seller Details -->
-                    <div class="p-4 rounded-2xl border border-gray-100 bg-[#f8fafc] md:col-span-2">
-                        <div class="font-bold text-gray-400 text-[10px] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                            <i class="fa-solid fa-shop text-[#4338ca]"></i> Seller Information
-                        </div>
-                        <div class="font-bold text-gray-900 text-sm mb-1" x-text="activeOrder.seller_name || 'N/A'"></div>
-                        <div class="text-gray-500 font-mono" x-text="activeOrder.seller_email || ''"></div>
-                    </div>
-
-                    <!-- Product Details -->
+                    <!-- Product & Seller Details -->
                     <div class="p-4 rounded-2xl border border-gray-100 bg-[#f8fafc]">
                         <div class="font-bold text-gray-400 text-[10px] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                            <i class="fa-solid fa-box-open text-[#4338ca]"></i> Product Details
+                            <i class="fa-solid fa-box-open text-[#4338ca]"></i> Item & Merchant
                         </div>
                         <div class="font-bold text-gray-900 text-sm mb-1" x-text="activeOrder.product_name || 'Package Item'"></div>
                         <div class="space-y-1 mt-2 text-gray-600">
                             <div class="flex justify-between"><span>Quantity:</span> <span class="font-bold text-gray-800" x-text="activeOrder.product_qty || 1"></span></div>
                             <div class="flex justify-between"><span>SKU:</span> <span class="font-bold text-gray-800" x-text="activeOrder.product_sku || 'N/A'"></span></div>
+                            <div class="flex justify-between pt-1 border-t border-gray-200/60"><span>Merchant:</span> <span class="font-bold text-gray-800 truncate max-w-[120px]" x-text="activeOrder.seller_name || 'N/A'"></span></div>
                         </div>
                     </div>
 
@@ -314,7 +322,7 @@
                                 <span class="text-gray-500">Invoice Value</span>
                                 <span class="font-bold text-gray-900" x-html="'&#8377;' + (activeOrder.invoice_value || 0)"></span>
                             </div>
-                                                        <div class="flex justify-between items-center border-b border-gray-200/60 pb-1.5" x-show="activeOrder.is_cod">
+                            <div class="flex justify-between items-center border-b border-gray-200/60 pb-1.5" x-show="activeOrder.is_cod">
                                 <span class="text-gray-500">COD Collect</span>
                                 <span class="font-bold text-gray-900" x-html="'&#8377;' + (activeOrder.cod_amount || activeOrder.invoice_value || 0)"></span>
                             </div>

@@ -406,11 +406,16 @@ class HubShipmentController extends Controller
 
         $file = $request->file('bulk_file');
         $csvData = file_get_contents($file->getRealPath());
-        $rows = array_map('str_getcsv', explode("\n", trim($csvData)));
+        $lines = preg_split("/\r\n|\n|\r/", trim($csvData));
+        $rows = array_map('str_getcsv', $lines);
         $header = array_shift($rows);
-        $header = array_map('trim', $header);
+        $header = array_map(function($h) {
+            return trim(preg_replace('/[\x00-\x1F\x7F\xEF\xBB\xBF]/u', '', (string)$h));
+        }, $header ?: []);
 
         $successCount = 0;
+        $defaultWh = \App\Models\Warehouse::where('user_id', $user->id)->where('is_default', true)->first()
+                   ?? \App\Models\Warehouse::where('user_id', $user->id)->first();
 
         foreach ($rows as $row) {
             if (empty(implode('', $row))) continue;
@@ -430,6 +435,12 @@ class HubShipmentController extends Controller
             $shipment->delivery_address = $data['delivery_address'] ?? 'N/A';
             $shipment->delivery_city = $data['delivery_city'] ?? 'N/A';
             $shipment->delivery_pincode = $data['delivery_pincode'] ?? '000000';
+            $shipment->pickup_name = !empty($data['pickup_name']) ? $data['pickup_name'] : ($defaultWh ? ($defaultWh->contact_person ? $defaultWh->contact_person . ' (' . $defaultWh->name . ')' : $defaultWh->name) : ($user->company_name ?: $user->name));
+            $shipment->pickup_phone = !empty($data['pickup_phone']) ? $data['pickup_phone'] : ($defaultWh ? $defaultWh->phone : $user->phone);
+            $shipment->pickup_address = !empty($data['pickup_address']) ? $data['pickup_address'] : ($defaultWh ? $defaultWh->address : $user->company_address);
+            $shipment->pickup_city = !empty($data['pickup_city']) ? $data['pickup_city'] : ($defaultWh ? $defaultWh->city : ($user->company_city ?: 'Origin'));
+            $shipment->pickup_state = !empty($data['pickup_state']) ? $data['pickup_state'] : ($defaultWh ? $defaultWh->state : $user->company_state);
+            $shipment->pickup_pincode = !empty($data['pickup_pincode']) ? $data['pickup_pincode'] : ($defaultWh ? $defaultWh->pincode : $user->company_pincode);
             $shipment->weight_kg = (float) ($data['weight_kg'] ?? 1.0);
             $shipment->length_cm = (float) ($data['length_cm'] ?? 10);
             $shipment->width_cm = (float) ($data['width_cm'] ?? 10);
@@ -787,7 +798,12 @@ class HubShipmentController extends Controller
                 ->where('status', 'success')
                 ->sum('amount');
 
-            $refundAmount = $alreadyDebited > 0 ? $alreadyDebited : (float)($shipment->total_amount ?? $shipment->shipping_charge ?? 0);
+            $alreadyCredited = (float) \App\Models\WalletTransaction::where('reference_id', $shipment->awb_number)
+                ->where('type', 'credit')
+                ->where('status', 'success')
+                ->sum('amount');
+
+            $refundAmount = $alreadyCredited > 0 ? 0 : ($alreadyDebited > 0 ? $alreadyDebited : (float)($shipment->total_amount ?? $shipment->shipping_charge ?? 0));
 
             // Refund logic
             if ($refundAmount > 0) {
@@ -840,7 +856,13 @@ class HubShipmentController extends Controller
                     ->where('type', 'debit')
                     ->where('status', 'success')
                     ->sum('amount');
-                $refund = $alreadyDebited > 0 ? $alreadyDebited : (float)($shipment->total_amount ?? 0);
+
+                $alreadyCredited = (float) \App\Models\WalletTransaction::where('reference_id', $shipment->awb_number)
+                    ->where('type', 'credit')
+                    ->where('status', 'success')
+                    ->sum('amount');
+
+                $refund = $alreadyCredited > 0 ? 0 : ($alreadyDebited > 0 ? $alreadyDebited : (float)($shipment->total_amount ?? 0));
 
                 if ($refund > 0) {
                     $payer = \App\Models\User::find($shipment->user_id) ?? $user;

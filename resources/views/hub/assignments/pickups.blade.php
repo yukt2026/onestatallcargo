@@ -105,8 +105,11 @@
                             <div class="text-xs text-gray-500">{{ $shipment->order_id }}</div>
                         </td>
                         <td class="px-4 py-3">
-                            <div>{{ $shipment->pickup_city }}</div>
-                            <div class="text-xs text-gray-500">PIN: {{ $shipment->pickup_pincode }}</div>
+                            <div class="font-bold text-gray-900 truncate max-w-[180px]">{{ !empty(trim($shipment->pickup_name ?? '')) ? $shipment->pickup_name : (optional($shipment->user)->company_name ?: optional($shipment->user)->name ?: 'Warehouse') }}</div>
+                            @if(!empty($shipment->pickup_address))
+                                <div class="text-[11px] text-gray-500 line-clamp-1 max-w-[180px]" title="{{ $shipment->pickup_address }}">{{ $shipment->pickup_address }}</div>
+                            @endif
+                            <div class="text-xs text-gray-600 font-medium">{{ $shipment->pickup_city }} <span class="text-gray-400">({{ $shipment->pickup_pincode }})</span></div>
                         </td>
                         <td class="px-4 py-3">
                             <div>{{ $shipment->delivery_city }}</div>

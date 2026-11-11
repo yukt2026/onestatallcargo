@@ -8,7 +8,7 @@ class DelhiveryService implements CourierInterface
     protected $apiUrl;
     protected $apiKey;
 
-    public function __construct(array $credentials)
+    public function __construct(array $credentials = [])
     {
         $this->apiUrl = $credentials['api_url'] ?? 'https://track.delhivery.com';
         $this->apiKey = $credentials['api_key'] ?? '';

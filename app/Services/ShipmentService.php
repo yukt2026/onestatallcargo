@@ -75,6 +75,30 @@ class ShipmentService
         $shipment->awb_number = $this->awbService->generateUniqueAwb();
         $shipment->status = 'Manifested';
 
+        // Auto-fill origin warehouse if omitted
+        $user = \App\Models\User::find($userId);
+        if ($user) {
+            $defaultWh = \App\Models\Warehouse::where('user_id', $userId)->orderByDesc('is_default')->first();
+            if (empty(trim($shipment->pickup_name ?? ''))) {
+                $shipment->pickup_name = $defaultWh ? ($defaultWh->contact_person ? $defaultWh->contact_person . ' (' . $defaultWh->name . ')' : $defaultWh->name) : ($user->company_name ?: $user->name);
+            }
+            if (empty(trim($shipment->pickup_phone ?? ''))) {
+                $shipment->pickup_phone = $defaultWh ? $defaultWh->phone : $user->phone;
+            }
+            if (empty(trim($shipment->pickup_address ?? ''))) {
+                $shipment->pickup_address = $defaultWh ? $defaultWh->address : ($user->company_address ?: 'Origin Hub');
+            }
+            if (empty(trim($shipment->pickup_city ?? ''))) {
+                $shipment->pickup_city = $defaultWh ? $defaultWh->city : ($user->company_city ?: 'Origin City');
+            }
+            if (empty(trim($shipment->pickup_state ?? ''))) {
+                $shipment->pickup_state = $defaultWh ? $defaultWh->state : $user->company_state;
+            }
+            if (empty(trim($shipment->pickup_pincode ?? '')) && $defaultWh) {
+                $shipment->pickup_pincode = $defaultWh->pincode;
+            }
+        }
+
         // Apply Routing Interceptor
         $this->assignRouting($shipment, $data['delivery_pincode']);
 

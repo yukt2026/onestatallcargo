@@ -272,11 +272,43 @@
         </div>
 
         <!-- Return Address (Seller Address visible, Seller personal mobile number hidden) -->
+        @php
+            $matchedWh = null;
+            if ($shipment->user && $shipment->user->relationLoaded('warehouses')) {
+                $matchedWh = $shipment->user->warehouses->firstWhere('pincode', $shipment->pickup_pincode) 
+                    ?? $shipment->user->warehouses->firstWhere('is_default', 1) 
+                    ?? $shipment->user->warehouses->first();
+            } elseif ($shipment->user) {
+                $matchedWh = \App\Models\Warehouse::where('user_id', $shipment->user_id)->where('pincode', $shipment->pickup_pincode)->first()
+                    ?? \App\Models\Warehouse::where('user_id', $shipment->user_id)->where('is_default', 1)->first()
+                    ?? \App\Models\Warehouse::where('user_id', $shipment->user_id)->first();
+            }
+
+            $labelShipperName = !empty(trim($shipment->pickup_name ?? '')) 
+                ? $shipment->pickup_name 
+                : ($matchedWh ? ($matchedWh->contact_person ? $matchedWh->contact_person . ' (' . $matchedWh->name . ')' : $matchedWh->name) : (optional($shipment->user)->company_name ?: optional($shipment->user)->brand_name ?: optional($shipment->pickupFranchise)->company_name ?: optional($shipment->user)->name ?: 'OneStall Shipper'));
+
+            $labelShipperAddr = !empty(trim($shipment->pickup_address ?? '')) 
+                ? $shipment->pickup_address 
+                : ($matchedWh->address ?? (optional($shipment->user)->company_address ?: optional($shipment->pickupFranchise)->address ?: 'Origin Hub'));
+
+            $labelShipperCity = !empty(trim($shipment->pickup_city ?? '')) 
+                ? $shipment->pickup_city 
+                : ($matchedWh->city ?? (optional($shipment->user)->company_city ?: 'City'));
+
+            $labelShipperState = !empty(trim($shipment->pickup_state ?? '')) 
+                ? $shipment->pickup_state 
+                : ($matchedWh->state ?? (!empty(optional($shipment->user)->company_state) ? optional($shipment->user)->company_state : (!empty(optional($shipment->pickupFranchise)->state) ? optional($shipment->pickupFranchise)->state : '')));
+
+            $labelShipperPin = !empty(trim($shipment->pickup_pincode ?? '')) 
+                ? $shipment->pickup_pincode 
+                : ($matchedWh->pincode ?? (optional($shipment->user)->company_pincode ?: '000000'));
+        @endphp
         <div class="section-box">
             <div class="section-title">Return Address:</div>
             <div class="section-content" style="margin-bottom: 4px;">
-                <span style="font-weight: 700;">{{ !empty(trim($shipment->pickup_name ?? '')) ? $shipment->pickup_name : (optional($shipment->user)->company_name ?: optional($shipment->user)->brand_name ?: optional($shipment->pickupFranchise)->company_name ?: optional($shipment->user)->name ?: 'OneStall Shipper') }}</span><br>
-                {{ !empty(trim($shipment->pickup_address ?? '')) ? $shipment->pickup_address : (optional($shipment->user)->company_address ?: optional($shipment->pickupFranchise)->address ?: 'Origin Hub') }}, {{ !empty(trim($shipment->pickup_city ?? '')) ? $shipment->pickup_city : (optional($shipment->user)->company_city ?: 'City') }}{{ !empty($shipment->pickup_state) ? ', ' . $shipment->pickup_state : (!empty(optional($shipment->user)->company_state) ? ', ' . optional($shipment->user)->company_state : (!empty(optional($shipment->pickupFranchise)->state) ? ', ' . optional($shipment->pickupFranchise)->state : '')) }}, {{ !empty(trim($shipment->pickup_pincode ?? '')) ? $shipment->pickup_pincode : (optional($shipment->user)->company_pincode ?: '000000') }}, India
+                <span style="font-weight: 700;">{{ $labelShipperName }}</span><br>
+                {{ $labelShipperAddr }}, {{ $labelShipperCity }}{{ !empty($labelShipperState) ? ', ' . $labelShipperState : '' }}, {{ $labelShipperPin }}, India
             </div>
             <div class="section-content">
                 <strong>Mobile:</strong> **********
@@ -286,8 +318,8 @@
         <!-- Support Details (Seller Email & Support Contact Number provided at the bottom) -->
         <div class="support-box">
             <div class="support-title">Support Details</div>
-            <div>Contact No: {{ !empty(trim($shipment->pickup_phone ?? '')) ? $shipment->pickup_phone : (optional($shipment->user)->support_phone ?: optional($shipment->user)->phone ?: '8384868758') }}</div>
-            <div>Email ID: {{ optional($shipment->user)->email ?? 'rishisolidgroup@gmail.com' }}</div>
+            <div>Contact No: {{ !empty(trim($shipment->pickup_phone ?? '')) ? $shipment->pickup_phone : (optional($shipment->user)->support_phone ?: optional($shipment->user)->phone ?: (function_exists('setting') ? (setting('support_phone') ?: '1800-202-3000') : '1800-202-3000')) }}</div>
+            <div>Email ID: {{ optional($shipment->user)->email ?? (function_exists('setting') ? (setting('support_email') ?: 'support@onestallcargo.com') : 'support@onestallcargo.com') }}</div>
         </div>
     </div>
 </body>

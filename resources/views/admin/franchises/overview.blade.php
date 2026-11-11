@@ -538,8 +538,8 @@
                                         <div class="text-[10px] text-gray-400">Order: {{ $s->order_id ?? 'N/A' }}</div>
                                     </td>
                                     <td class="px-6 py-3.5">
-                                        <div class="font-semibold text-gray-900">{{ $s->sender_name ?? 'Merchant' }}</div>
-                                        <div class="text-[10px] text-gray-400">{{ $s->sender_city ?? $s->pickup_city ?? 'Origin' }}</div>
+                                        <div class="font-semibold text-gray-900">{{ !empty(trim($s->pickup_name ?? '')) ? $s->pickup_name : (optional($s->user)->company_name ?: optional($s->user)->name ?: 'Merchant') }}</div>
+                                        <div class="text-[10px] text-gray-400">{{ !empty($s->pickup_city) ? ($s->pickup_city . (!empty($s->pickup_pincode) ? ' (' . $s->pickup_pincode . ')' : '')) : 'Origin' }}</div>
                                     </td>
                                     <td class="px-6 py-3.5">
                                         <div class="font-semibold text-gray-900">{{ $s->receiver_name }}</div>

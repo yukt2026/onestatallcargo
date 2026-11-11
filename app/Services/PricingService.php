@@ -38,7 +38,8 @@ class PricingService
         }
 
         // Calculate Chargeable Weight
-        $volumetric_weight = ($l * $b * $h) / $rateCard->volumetric_divisor;
+        $divisor = ($rateCard->volumetric_divisor && $rateCard->volumetric_divisor > 0) ? (float)$rateCard->volumetric_divisor : 5000;
+        $volumetric_weight = ($l * $b * $h) / $divisor;
         $chargeable_weight = max($physical_weight, $volumetric_weight);
         
         // Determine Zone (Mock logic based on real zone definitions - typically done via DB/Pincode API)

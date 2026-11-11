@@ -198,8 +198,8 @@
                     <tr class="{{ $idx % 2 === 0 ? 'bg-white' : 'bg-gray-50' }}">
                         <td class="border border-gray-300 p-1.5 text-center font-bold">{{ $idx + 1 }}</td>
                         <td class="border border-gray-300 p-1.5 font-mono font-black text-purple-900">{{ $p->awb_number }}</td>
-                        <td class="border border-gray-300 p-1.5 font-bold">{{ optional($p->user)->company_name ?? optional($p->user)->name ?? 'Seller' }}</td>
-                        <td class="border border-gray-300 p-1.5 text-[9px] text-gray-600">{{ $p->pickup_address ?? 'Registered Seller Warehouse' }}</td>
+                        <td class="border border-gray-300 p-1.5 font-bold">{{ !empty(trim($p->pickup_name ?? '')) ? $p->pickup_name : (optional($p->user)->company_name ?? optional($p->user)->name ?? 'Seller') }}</td>
+                        <td class="border border-gray-300 p-1.5 text-[9px] text-gray-600">{{ !empty(trim($p->pickup_address ?? '')) ? $p->pickup_address . (!empty($p->pickup_city) ? ', ' . $p->pickup_city : '') . (!empty($p->pickup_pincode) ? ' - ' . $p->pickup_pincode : '') : 'Registered Seller Warehouse' }}</td>
                         <td class="border border-gray-300 p-1.5 text-center font-bold">{{ $p->weight_kg }} KG</td>
                         <td class="border border-gray-300 p-1.5 text-center font-bold text-purple-800">{{ $p->status }}</td>
                         <td class="border border-gray-300 p-1.5 text-center font-bold text-green-700">&#10003; Received into Hub</td>

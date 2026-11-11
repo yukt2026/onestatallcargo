@@ -34,9 +34,9 @@
                 <!-- Pickup History Details -->
                 <div class="bg-gray-50 rounded-xl p-3 mb-3 border border-gray-100">
                     <div class="text-xs text-gray-700 font-bold mb-1"><i class="fa-solid fa-location-dot text-purple-500 w-4"></i> Picked Up From:</div>
-                    <div class="text-sm font-extrabold text-gray-900 ml-5 mb-1">{{ $shipment->user->company_name ?? $shipment->user->name ?? 'Seller' }}</div>
-                    <div class="text-xs text-gray-600 ml-5 leading-tight">{{ $shipment->pickup_address }}, {{ $shipment->pickup_city }} - <span class="font-bold text-gray-800">{{ $shipment->pickup_pincode }}</span></div>
-                    <div class="text-xs font-bold text-purple-600 mt-2 ml-5"><i class="fa-solid fa-phone w-4"></i> <a href="tel:{{ $shipment->user->phone ?? '' }}">{{ $shipment->user->phone ?? 'N/A' }}</a></div>
+                    <div class="text-sm font-extrabold text-gray-900 ml-5 mb-1">{{ !empty(trim($shipment->pickup_name ?? '')) ? $shipment->pickup_name : ($shipment->user->company_name ?? $shipment->user->name ?? 'Seller') }}</div>
+                    <div class="text-xs text-gray-600 ml-5 leading-tight">{{ !empty(trim($shipment->pickup_address ?? '')) ? $shipment->pickup_address : 'Warehouse' }}, {{ $shipment->pickup_city ?? '' }} - <span class="font-bold text-gray-800">{{ $shipment->pickup_pincode ?? '' }}</span></div>
+                    <div class="text-xs font-bold text-purple-600 mt-2 ml-5"><i class="fa-solid fa-phone w-4"></i> <a href="tel:{{ $shipment->pickup_phone ?? $shipment->user->phone ?? '' }}">{{ $shipment->pickup_phone ?? $shipment->user->phone ?? 'N/A' }}</a></div>
                 </div>
             @else
                 <!-- Delivery History Details -->

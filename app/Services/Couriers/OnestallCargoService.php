@@ -19,7 +19,7 @@ class OnestallCargoService implements CourierInterface
         return true; 
     }
 
-    public function calculateRate(string $pickup_pincode, string $delivery_pincode, float $weight): array
+    public function calculateRate(string $pickup_pincode, string $delivery_pincode, float $weight, bool $is_cod = false, float $invoice_value = 0): array
     {
         // Try to find a rate for this specific courier in the rates table
         $courier = Courier::where('name', 'Onestall Cargo')->first();

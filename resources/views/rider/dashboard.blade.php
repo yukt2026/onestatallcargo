@@ -123,7 +123,7 @@
                 </div>
                 <div class="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-1 rounded shadow-sm" :class="!isAccepted(pickup.awb_number) ? 'bg-red-100 text-red-700 animate-pulse' : ''" x-text="!isAccepted(pickup.awb_number) ? 'New Assignment' : 'Pickup'"></div>
             </div>
-            <div class="text-xs text-gray-600 mb-3"><i class="fa-solid fa-location-dot w-4"></i> <span x-text="pickup.pickup_address + ', ' + pickup.pickup_city"></span></div>
+            <div class="text-xs text-gray-600 mb-3"><i class="fa-solid fa-location-dot w-4"></i> <span x-text="(pickup.pickup_address || 'Origin Address') + (pickup.pickup_city ? ', ' + pickup.pickup_city : '') + (pickup.pickup_pincode ? ' - ' + pickup.pickup_pincode : '')"></span></div>
             
             <!-- Unaccepted State -->
             <button x-show="!isAccepted(pickup.awb_number)" @click="acceptOrder(pickup.awb_number)" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-extrabold rounded-xl shadow-md transition animate-bounce mt-2"><i class="fa-solid fa-check-double mr-2"></i> Accept Pickup Order</button>
@@ -224,7 +224,7 @@ document.addEventListener('alpine:init', () => {
             this.pendingPickups = rawPickups.map(p => ({ 
                 ...p, 
                 showUpload: false,
-                seller_name: p.user ? (p.user.company_name || p.user.name) : 'Seller'
+                seller_name: (p.pickup_name && p.pickup_name.trim() !== '') ? p.pickup_name : (p.user ? (p.user.company_name || p.user.name) : 'Seller')
             }));
             
             if (this.pendingDeliveries.length === 0 && this.pendingPickups.length > 0) {

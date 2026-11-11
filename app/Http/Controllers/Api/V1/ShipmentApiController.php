@@ -102,11 +102,11 @@ class ShipmentApiController extends Controller
         $shipment->receiver_name = $validated["receiver_name"];
         $shipment->receiver_phone = $validated["receiver_phone"];
         $warehouse = \App\Models\Warehouse::where('user_id', $user->id)->orderByDesc('is_default')->first();
-        $shipment->pickup_name = $validated['pickup_name'] ?? ($warehouse ? ($warehouse->contact_person ? $warehouse->contact_person . ' (' . $warehouse->name . ')' : $warehouse->name) : $user->company_name);
-        $shipment->pickup_phone = $validated['pickup_phone'] ?? ($warehouse->phone ?? $user->phone);
-        $shipment->pickup_address = $validated['pickup_address'] ?? ($warehouse->address ?? $user->company_address ?? 'Origin Hub');
-        $shipment->pickup_city = $validated['pickup_city'] ?? ($warehouse->city ?? $user->company_city ?? 'Origin City');
-        $shipment->pickup_state = $validated['pickup_state'] ?? ($warehouse->state ?? $user->company_state ?? null);
+        $shipment->pickup_name = !empty(trim($validated['pickup_name'] ?? '')) ? $validated['pickup_name'] : ($warehouse ? ($warehouse->contact_person ? $warehouse->contact_person . ' (' . $warehouse->name . ')' : $warehouse->name) : $user->company_name);
+        $shipment->pickup_phone = !empty(trim($validated['pickup_phone'] ?? '')) ? $validated['pickup_phone'] : ($warehouse->phone ?? $user->phone);
+        $shipment->pickup_address = !empty(trim($validated['pickup_address'] ?? '')) ? $validated['pickup_address'] : ($warehouse->address ?? $user->company_address ?? 'Origin Hub');
+        $shipment->pickup_city = !empty(trim($validated['pickup_city'] ?? '')) ? $validated['pickup_city'] : ($warehouse->city ?? $user->company_city ?? 'Origin City');
+        $shipment->pickup_state = !empty(trim($validated['pickup_state'] ?? '')) ? $validated['pickup_state'] : ($warehouse->state ?? $user->company_state ?? null);
         $shipment->pickup_pincode = $validated["pickup_pincode"];
         $shipment->delivery_address = $validated["delivery_address"];
         $shipment->delivery_city = $validated["delivery_city"];

@@ -46,9 +46,9 @@
             <!-- Consignor -->
             <div class="border border-gray-300 p-4 rounded-lg">
                 <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 pb-2 mb-2">Consignor (Sender)</h3>
-                <p class="font-black text-lg text-gray-900">{{ !empty(trim($shipment->pickup_name ?? '')) ? $shipment->pickup_name : (optional($shipment->user)->company_name ?: optional($shipment->user)->name ?: (Auth::user()->name ?? 'OneStall Shipper')) }}</p>
-                <p class="text-sm text-gray-700 mt-1">{{ !empty(trim($shipment->pickup_address ?? '')) ? $shipment->pickup_address : 'Origin Hub' }}<br>{{ $shipment->pickup_city ?? '' }}{{ !empty($shipment->pickup_state) ? ', ' . $shipment->pickup_state : '' }} - {{ $shipment->pickup_pincode ?? '' }}</p>
-                <p class="text-sm text-gray-700 mt-1 font-semibold">Ph: {{ !empty(trim($shipment->pickup_phone ?? '')) ? $shipment->pickup_phone : (optional($shipment->user)->phone ?: (Auth::user()->phone ?? 'N/A')) }}</p>
+                <p class="font-black text-lg text-gray-900">{{ !empty(trim($shipment->pickup_name ?? '')) ? $shipment->pickup_name : (optional($shipment->user)->company_name ?: optional($shipment->user)->name ?: 'OneStall Shipper') }}</p>
+                <p class="text-sm text-gray-700 mt-1">{{ !empty(trim($shipment->pickup_address ?? '')) ? $shipment->pickup_address : (optional($shipment->user)->company_address ?: 'Origin Hub') }}<br>{{ $shipment->pickup_city ?? '' }}{{ !empty($shipment->pickup_state) ? ', ' . $shipment->pickup_state : (!empty(optional($shipment->user)->company_state) ? ', ' . optional($shipment->user)->company_state : '') }} - {{ $shipment->pickup_pincode ?? '' }}</p>
+                <p class="text-sm text-gray-700 mt-1 font-semibold">Ph: {{ !empty(trim($shipment->pickup_phone ?? '')) ? $shipment->pickup_phone : (optional($shipment->user)->support_phone ?: optional($shipment->user)->phone ?: 'N/A') }}</p>
             </div>
             
             <!-- Consignee -->

@@ -356,7 +356,12 @@ class AdminShipmentController extends Controller
             ->where('status', 'success')
             ->sum('amount');
 
-        $refundAmount = $alreadyDebited > 0 ? $alreadyDebited : (float)($shipment->total_amount ?? $shipment->shipping_charge ?? 0);
+        $alreadyCredited = (float) \App\Models\WalletTransaction::where('reference_id', $shipment->awb_number)
+            ->where('type', 'credit')
+            ->where('status', 'success')
+            ->sum('amount');
+
+        $refundAmount = $alreadyCredited > 0 ? 0 : ($alreadyDebited > 0 ? $alreadyDebited : (float)($shipment->total_amount ?? $shipment->shipping_charge ?? 0));
 
         if ($refundAmount > 0 && $shipment->user_id) {
             $user = \App\Models\User::find($shipment->user_id);

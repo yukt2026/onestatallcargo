@@ -40,15 +40,28 @@ class AdminBillingController extends Controller {
             // If wallet is negative, clear it from the COD payout (up to the total COD amount)
             if ($user->wallet_balance < 0) {
                 $due = abs($user->wallet_balance);
+                $settledAmount = 0;
                 
                 if ($totalCod >= $due) {
                     // Settle full due
+                    $settledAmount = $due;
                     $user->wallet_balance = 0;
                 } else {
                     // Settle partial due
+                    $settledAmount = $totalCod;
                     $user->wallet_balance += $totalCod;
                 }
                 $user->save();
+
+                \App\Models\WalletTransaction::create([
+                    'user_id' => $user->id,
+                    'type' => 'credit',
+                    'amount' => $settledAmount,
+                    'balance_after' => $user->wallet_balance,
+                    'reference_id' => 'COD_REMIT_' . time(),
+                    'description' => 'Wallet negative balance settlement from COD remittance',
+                    'status' => 'success',
+                ]);
             }
 
             // Mark COD as remitted

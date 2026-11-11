@@ -40,7 +40,7 @@ class XpressbeesService implements CourierInterface
         '70' => 2,
     ];
 
-    public function __construct(array $credentials)
+    public function __construct(array $credentials = [])
     {
         $this->credentials = $credentials;
     }

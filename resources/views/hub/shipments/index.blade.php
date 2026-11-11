@@ -321,9 +321,31 @@
                                 </div>
                             </td>
 
-                            <!-- PICKUP ADDRESS -->
-                            <td class="px-3 py-4 align-top">
-                                <div class="text-xs font-semibold text-gray-700 truncate max-w-[100px]">{{ Auth::user()->company_name ?? 'Main Hub' }}</div>
+                            <!-- PICKUP LOCATION -->
+                            <td class="px-3 py-4 align-top max-w-[170px]">
+                                @php
+                                    $pName = !empty(trim($shipment->pickup_name ?? '')) 
+                                        ? $shipment->pickup_name 
+                                        : (optional(optional($shipment->user)->warehouses)->firstWhere('pincode', $shipment->pickup_pincode)->name 
+                                        ?? (optional(optional($shipment->user)->warehouses)->firstWhere('is_default', 1)->name 
+                                        ?? (optional($shipment->user)->company_name ?: 'Primary Hub')));
+                                    $pCity = $shipment->pickup_city ?: (optional($shipment->user)->company_city ?: 'Origin');
+                                    $pPin = $shipment->pickup_pincode ?: (optional($shipment->user)->company_pincode ?: '');
+                                    $pAddr = $shipment->pickup_address ?: (optional($shipment->user)->company_address ?: '');
+                                @endphp
+                                <div class="font-bold text-gray-900 text-xs truncate" title="{{ $pName }}">
+                                    <i class="fa-solid fa-warehouse text-emerald-600 text-[10px] mr-1"></i>
+                                    <span>{{ $pName }}</span>
+                                </div>
+                                @if(!empty($pAddr))
+                                    <div class="text-[11px] text-gray-500 line-clamp-1 leading-relaxed mt-0.5" title="{{ $pAddr }}">
+                                        {{ $pAddr }}
+                                    </div>
+                                @endif
+                                <div class="text-[10px] font-semibold text-gray-600 mt-1 flex items-center gap-1">
+                                    <i class="fa-solid fa-location-dot text-[9px] text-gray-400"></i>
+                                    <span>{{ $pCity }}{{ $pPin ? ' (' . $pPin . ')' : '' }}</span>
+                                </div>
                             </td>
 
                             <!-- STICKY ACTION COLUMN CELL -->
@@ -472,9 +494,22 @@
                     </button>
                 </div>
 
-                <!-- Modal Body Grid (3 Sections) -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                <!-- Modal Body Grid (4 Sections) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
                     
+                    <!-- Pickup Details -->
+                    <div class="p-4 rounded-2xl border border-gray-100 bg-[#f8fafc]">
+                        <div class="font-bold text-gray-400 text-[10px] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                            <i class="fa-solid fa-warehouse text-emerald-600"></i> Pickup Details
+                        </div>
+                        <div class="font-bold text-gray-900 text-sm mb-1" x-text="activeOrder.pickup_name || 'Primary Hub'"></div>
+                        <div class="text-gray-600 leading-relaxed line-clamp-2" x-text="activeOrder.pickup_address || 'Origin Address'"></div>
+                        <div class="text-gray-600 font-semibold mt-1" x-text="(activeOrder.pickup_city || '') + (activeOrder.pickup_state ? ', ' + activeOrder.pickup_state : '') + (activeOrder.pickup_pincode ? ' - ' + activeOrder.pickup_pincode : '')"></div>
+                        <template x-if="activeOrder.pickup_phone">
+                            <div class="text-gray-500 mt-2 font-mono"><i class="fa-solid fa-phone text-gray-400 mr-1"></i> <span x-text="activeOrder.pickup_phone"></span></div>
+                        </template>
+                    </div>
+
                     <!-- Customer Details -->
                     <div class="p-4 rounded-2xl border border-gray-100 bg-[#f8fafc]">
                         <div class="font-bold text-gray-400 text-[10px] uppercase tracking-wider mb-2 flex items-center gap-1.5">

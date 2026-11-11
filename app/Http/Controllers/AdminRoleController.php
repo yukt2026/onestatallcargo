@@ -103,7 +103,21 @@ class AdminRoleController extends Controller {
         }
         $user->role = $validated['role'];
         $user->company_name = $validated['company_name'];
-        $user->wallet_balance = $validated['wallet_balance'];
+        $oldBalance = (float)$user->wallet_balance;
+        $newBalance = (float)$validated['wallet_balance'];
+        if ($oldBalance !== $newBalance) {
+            $diff = $newBalance - $oldBalance;
+            \App\Models\WalletTransaction::create([
+                'user_id' => $user->id,
+                'amount' => abs($diff),
+                'type' => $diff > 0 ? 'credit' : 'debit',
+                'balance_after' => $newBalance,
+                'reference_id' => 'ADMIN_OVERRIDE_' . time(),
+                'description' => 'Wallet balance override by Superadmin in Role Management',
+                'status' => 'success'
+            ]);
+        }
+        $user->wallet_balance = $newBalance;
         $user->permissions = $validated['permissions'] ?? [];
         $user->save();
 

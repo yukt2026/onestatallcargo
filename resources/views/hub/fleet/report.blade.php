@@ -242,11 +242,11 @@
                             {{ $pickup->awb_number }}
                         </td>
                         <td class="px-5 py-3.5">
-                            <div class="font-bold text-gray-900">{{ optional($pickup->user)->company_name ?? optional($pickup->user)->name ?? 'Client Store' }}</div>
-                            <div class="text-[10px] text-gray-500">{{ optional($pickup->user)->phone }}</div>
+                            <div class="font-bold text-gray-900">{{ !empty(trim($pickup->pickup_name ?? '')) ? $pickup->pickup_name : (optional($pickup->user)->company_name ?? optional($pickup->user)->name ?? 'Client Store') }}</div>
+                            <div class="text-[10px] text-gray-500">{{ !empty(trim($pickup->pickup_phone ?? '')) ? $pickup->pickup_phone : optional($pickup->user)->phone }}</div>
                         </td>
-                        <td class="px-5 py-3.5 text-gray-600 max-w-xs truncate">
-                            {{ $pickup->pickup_address ?? 'Registered Pickup Location' }}
+                        <td class="px-5 py-3.5 text-gray-600 max-w-xs truncate" title="{{ $pickup->pickup_address }}">
+                            {{ !empty(trim($pickup->pickup_address ?? '')) ? $pickup->pickup_address . (!empty($pickup->pickup_city) ? ', ' . $pickup->pickup_city : '') . (!empty($pickup->pickup_pincode) ? ' (' . $pickup->pickup_pincode . ')' : '') : 'Registered Pickup Location' }}
                         </td>
                         <td class="px-5 py-3.5 font-medium text-gray-800">
                             {{ $pickup->delivery_city }} ({{ $pickup->delivery_pincode }})

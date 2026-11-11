@@ -76,7 +76,17 @@ class AdminSellerController extends Controller
         ]));
         
         if (!empty($validated['wallet_adjustment']) && $validated['wallet_adjustment'] != 0) {
-            $seller->wallet_balance += $validated['wallet_adjustment'];
+            $adj = (float)$validated['wallet_adjustment'];
+            $seller->wallet_balance += $adj;
+            \App\Models\WalletTransaction::create([
+                'user_id' => $seller->id,
+                'amount' => abs($adj),
+                'type' => $adj > 0 ? 'credit' : 'debit',
+                'balance_after' => $seller->wallet_balance,
+                'reference_id' => 'ADMIN_ADJ_' . time(),
+                'description' => 'Manual balance adjustment by Administrator',
+                'status' => 'success'
+            ]);
         }
 
         $seller->save();
