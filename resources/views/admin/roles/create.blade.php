@@ -56,7 +56,7 @@
                             <option value="admin">Super Admin (Full Control)</option>
                             <option value="operations">Admin / Operations Team</option>
                             <option value="seller">Seller (Online/Offline)</option>
-                            <option value="aggregator">Aggregator (Other Shipping Cos)</option>
+                            <option value="aggregator">Courier Partner / Channel (Other Shipping Cos)</option>
                             <option value="b2b_customer">B2B Customer (Heavy/Cargo)</option>
                             <option value="customer">B2C Customer (Individual)</option>
                             <option value="franchise">Franchise / Hub Partner</option>

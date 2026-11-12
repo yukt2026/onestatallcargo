@@ -54,7 +54,7 @@
             <div class="bg-black/30 p-3 rounded-lg"><span class="text-yellow-400 font-bold mr-2">POST</span> <code class="break-all">{{ url('api/v1/shipments/{awb}/cancel') }}</code></div>
             
             <div class="mt-4 pt-4 border-t border-gray-700/50">
-                <p class="text-xs text-gray-400 mb-2">External Aggregator APIs (Legacy Auth):</p>
+                <p class="text-xs text-gray-400 mb-2">External Courier & Logistics APIs (Legacy Auth):</p>
                 <div class="bg-black/30 p-3 rounded-lg"><span class="text-green-400 font-bold mr-2">POST</span> <code class="break-all">{{ url('api/v1/external/serviceability') }}</code></div>
                 <div class="bg-black/30 p-3 rounded-lg"><span class="text-green-400 font-bold mr-2">POST</span> <code class="break-all">{{ url('api/v1/external/rate') }}</code></div>
                 <div class="bg-black/30 p-3 rounded-lg"><span class="text-green-400 font-bold mr-2">POST</span> <code class="break-all">{{ url('api/v1/external/shipment') }}</code></div>
