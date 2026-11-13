@@ -112,7 +112,58 @@
                 </div>
             </div>
             
-            <div class="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-3xl border border-yellow-200 shadow-sm p-6">
+            <div class="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-3xl border border-yellow-200 shadow-sm p-6" 
+                 x-data="{ 
+                     adjustType: 'credit',
+                     amount: '',
+                     remarks: '',
+                     loading: false,
+                     msg: '',
+                     isSuccess: true,
+                     currentBal: {{ (float)($user->wallet_balance ?? 0) }},
+                     async performAdjustment() {
+                         let val = parseFloat(this.amount);
+                         if (!val || val <= 0) {
+                             alert('Please enter a valid amount greater than ₹0');
+                             return;
+                         }
+                         this.loading = true;
+                         this.msg = '';
+                         try {
+                             let res = await fetch('{{ route('admin.roles.wallet.credit', $user->id) }}', {
+                                 method: 'POST',
+                                 headers: {
+                                     'Content-Type': 'application/json',
+                                     'Accept': 'application/json',
+                                     'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                 },
+                                 body: JSON.stringify({
+                                     amount: val,
+                                     type: this.adjustType,
+                                     remarks: this.remarks
+                                 })
+                             });
+                             let data = await res.json();
+                             if (data.success) {
+                                 this.isSuccess = true;
+                                 this.msg = data.message;
+                                 this.currentBal = parseFloat(data.new_balance);
+                                 let inputEl = document.getElementById('mainWalletBalanceInput');
+                                 if (inputEl) inputEl.value = this.currentBal.toFixed(2);
+                                 this.amount = '';
+                                 this.remarks = '';
+                             } else {
+                                 this.isSuccess = false;
+                                 this.msg = data.message || 'Action failed.';
+                             }
+                         } catch (e) {
+                             this.isSuccess = false;
+                             this.msg = 'Server connection error.';
+                         } finally {
+                             this.loading = false;
+                         }
+                     }
+                 }">
                 <div class="flex items-center gap-3 mb-2">
                     <div class="w-10 h-10 bg-yellow-100 text-yellow-600 rounded-xl flex items-center justify-center shadow-sm"><i class="fa-solid fa-wallet"></i></div>
                     <div>
@@ -121,27 +172,69 @@
                     </div>
                 </div>
                 <div class="mt-4 bg-white rounded-xl p-4 border border-yellow-100 flex items-center gap-3">
-                    <span class="text-gray-400 font-bold">₹</span>
-                    <input type="number" step="0.01" name="wallet_balance" value="{{ $user->wallet_balance }}" class="w-full bg-transparent text-xl font-black text-gray-900 outline-none" required>
+                    <span class="text-gray-400 font-bold text-lg">₹</span>
+                    <input type="number" step="0.01" id="mainWalletBalanceInput" name="wallet_balance" :value="currentBal.toFixed(2)" class="w-full bg-transparent text-2xl font-black text-gray-900 outline-none" required>
                 </div>
 
-                <!-- Instant Quick Recharge by Admin -->
-                <div class="mt-5 pt-4 border-t border-yellow-200">
-                    <p class="text-[11px] font-black text-amber-900 uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <i class="fa-solid fa-bolt text-amber-500"></i> Instant Add / Credit Funds
-                    </p>
-                    <div class="space-y-2">
-                        <div class="flex gap-2">
-                            <input type="number" form="adminQuickCreditForm" name="amount" id="quickAddAmt" placeholder="Enter ₹ Amount" min="1" step="1" class="flex-1 bg-white border border-amber-300 rounded-xl px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500" required>
-                            <button type="submit" form="adminQuickCreditForm" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black text-xs transition shadow-sm flex items-center gap-1.5 whitespace-nowrap">
-                                <i class="fa-solid fa-plus-circle"></i> Add Now
+                <!-- Admin Instant Balance Adjustment (+ Add or - Deduct) -->
+                <div class="mt-5 pt-4 border-t border-yellow-200/80">
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                        <p class="text-[11px] font-black text-gray-800 uppercase tracking-wider flex items-center gap-1">
+                            <i class="fa-solid fa-sliders text-amber-600"></i> Adjust (+ / -)
+                        </p>
+                        
+                        <!-- Toggle Buttons: + Add vs - Deduct -->
+                        <div class="inline-flex bg-gray-200/80 p-0.5 rounded-xl text-xs font-black">
+                            <button type="button" @click="adjustType = 'credit'; msg = ''" 
+                                    :class="adjustType === 'credit' ? 'bg-emerald-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'" 
+                                    class="px-2.5 py-1 rounded-lg transition flex items-center gap-1 text-[11px]">
+                                <i class="fa-solid fa-plus text-[9px]"></i> Add (+)
+                            </button>
+                            <button type="button" @click="adjustType = 'debit'; msg = ''" 
+                                    :class="adjustType === 'debit' ? 'bg-rose-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'" 
+                                    class="px-2.5 py-1 rounded-lg transition flex items-center gap-1 text-[11px]">
+                                <i class="fa-solid fa-minus text-[9px]"></i> Deduct (-)
                             </button>
                         </div>
-                        <div class="flex flex-wrap gap-1.5 pt-1">
-                            <button type="button" onclick="document.getElementById('quickAddAmt').value = 500;" class="px-2 py-1 bg-white border border-amber-200 rounded-lg text-[10px] font-extrabold text-amber-800 hover:bg-amber-100 transition">+ ₹500</button>
-                            <button type="button" onclick="document.getElementById('quickAddAmt').value = 1000;" class="px-2 py-1 bg-white border border-amber-200 rounded-lg text-[10px] font-extrabold text-amber-800 hover:bg-amber-100 transition">+ ₹1,000</button>
-                            <button type="button" onclick="document.getElementById('quickAddAmt').value = 2000;" class="px-2 py-1 bg-white border border-amber-200 rounded-lg text-[10px] font-extrabold text-amber-800 hover:bg-amber-100 transition">+ ₹2,000</button>
-                            <button type="button" onclick="document.getElementById('quickAddAmt').value = 5000;" class="px-2 py-1 bg-white border border-amber-200 rounded-lg text-[10px] font-extrabold text-amber-800 hover:bg-amber-100 transition">+ ₹5,000</button>
+                    </div>
+
+                    <!-- Status Notification Banner -->
+                    <div x-show="msg" x-transition class="p-2.5 rounded-xl text-xs font-bold mb-2 flex items-center gap-1.5"
+                         :class="isSuccess ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300'" style="display: none;">
+                        <i :class="isSuccess ? 'fa-solid fa-circle-check text-emerald-600' : 'fa-solid fa-circle-exclamation text-rose-600'"></i>
+                        <span x-text="msg"></span>
+                    </div>
+
+                    <div class="space-y-2.5">
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 font-black text-sm" :class="adjustType === 'credit' ? 'text-emerald-600' : 'text-rose-600'">
+                                <span x-text="adjustType === 'credit' ? '+ ₹' : '- ₹'"></span>
+                            </span>
+                            <input type="number" x-model.number="amount" placeholder="Enter Amount" min="1" step="0.01" class="w-full bg-white border border-yellow-300 rounded-xl pl-11 pr-3 py-2 text-sm font-extrabold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-2xs">
+                        </div>
+
+                        <!-- Optional Remarks / Reason -->
+                        <input type="text" x-model="remarks" placeholder="Reason / Remarks (Optional)" class="w-full bg-white border border-yellow-200 rounded-xl px-3 py-1.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-400">
+
+                        <!-- Action Submit Button -->
+                        <button type="button" @click="performAdjustment()" :disabled="loading"
+                                :class="adjustType === 'credit' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'"
+                                class="w-full py-2.5 text-white rounded-xl font-black text-xs transition shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50">
+                            <span x-show="!loading" class="flex items-center gap-1.5">
+                                <i :class="adjustType === 'credit' ? 'fa-solid fa-circle-plus' : 'fa-solid fa-circle-minus'"></i>
+                                <span x-text="adjustType === 'credit' ? 'Confirm + Credit to Wallet' : 'Confirm - Deduct from Wallet'"></span>
+                            </span>
+                            <span x-show="loading" class="flex items-center gap-1.5" style="display: none;">
+                                <i class="fa-solid fa-circle-notch fa-spin"></i> Processing...
+                            </span>
+                        </button>
+
+                        <!-- Quick Chips -->
+                        <div class="flex flex-wrap gap-1.5 pt-0.5">
+                            <button type="button" @click="amount = 500" class="px-2 py-0.5 bg-white border border-yellow-200 rounded-lg text-[10px] font-extrabold text-gray-700 hover:bg-yellow-100 transition">₹500</button>
+                            <button type="button" @click="amount = 1000" class="px-2 py-0.5 bg-white border border-yellow-200 rounded-lg text-[10px] font-extrabold text-gray-700 hover:bg-yellow-100 transition">₹1,000</button>
+                            <button type="button" @click="amount = 2000" class="px-2 py-0.5 bg-white border border-yellow-200 rounded-lg text-[10px] font-extrabold text-gray-700 hover:bg-yellow-100 transition">₹2,000</button>
+                            <button type="button" @click="amount = 5000" class="px-2 py-0.5 bg-white border border-yellow-200 rounded-lg text-[10px] font-extrabold text-gray-700 hover:bg-yellow-100 transition">₹5,000</button>
                         </div>
                     </div>
                 </div>
@@ -252,13 +345,6 @@
                 </button>
             </div>
         </div>
-    </form>
-
-    <!-- Hidden Quick Credit Form -->
-    <form id="adminQuickCreditForm" action="{{ route('admin.roles.wallet.credit', $user->id) }}" method="POST" style="display:none;">
-        @csrf
-        <input type="hidden" name="type" value="credit">
-        <input type="hidden" name="remarks" value="Direct wallet recharge from Admin User Edit">
     </form>
 
     <!-- Mobile Sticky Floating Bottom Save Bar -->

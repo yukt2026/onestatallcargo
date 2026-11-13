@@ -146,25 +146,43 @@ class AdminRoleController extends Controller {
         $remarks = $request->input('remarks') ?: ($type === 'credit' ? 'Manual Wallet Credit by Admin' : 'Manual Wallet Debit by Admin');
         $auditDesc = "{$remarks} (Processed by {$adminName})";
 
-        if ($type === 'debit') {
-            app(\App\Services\WalletService::class)->deduct(
-                $user->id,
-                $amount,
-                $auditDesc,
-                'ADMIN_DEBIT_' . strtoupper(\Illuminate\Support\Str::random(8))
-            );
-            $msg = '₹' . number_format($amount, 2) . ' debited from user wallet successfully.';
-        } else {
-            app(\App\Services\WalletService::class)->credit(
-                $user->id,
-                $amount,
-                $auditDesc,
-                'ADMIN_CREDIT_' . strtoupper(\Illuminate\Support\Str::random(8))
-            );
-            $msg = '₹' . number_format($amount, 2) . ' credited to user wallet successfully.';
-        }
+        try {
+            if ($type === 'debit') {
+                app(\App\Services\WalletService::class)->deduct(
+                    $user->id,
+                    $amount,
+                    $auditDesc,
+                    'ADMIN_DEBIT_' . strtoupper(\Illuminate\Support\Str::random(8))
+                );
+                $msg = '₹' . number_format($amount, 2) . ' debited from user wallet successfully.';
+            } else {
+                app(\App\Services\WalletService::class)->credit(
+                    $user->id,
+                    $amount,
+                    $auditDesc,
+                    'ADMIN_CREDIT_' . strtoupper(\Illuminate\Support\Str::random(8))
+                );
+                $msg = '₹' . number_format($amount, 2) . ' credited to user wallet successfully.';
+            }
 
-        return redirect()->route('admin.roles.edit', $user->id)->with('success', $msg);
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $msg,
+                    'new_balance' => (float)$user->fresh()->wallet_balance
+                ]);
+            }
+
+            return redirect()->route('admin.roles.edit', $user->id)->with('success', $msg);
+        } catch (\Exception $e) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage()
+                ], 422);
+            }
+            return redirect()->route('admin.roles.edit', $user->id)->with('error', $e->getMessage());
+        }
     }
 }
 
