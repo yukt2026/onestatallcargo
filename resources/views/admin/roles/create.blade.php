@@ -106,8 +106,9 @@
 
         </div>
         
-        <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
-            <button type="submit" class="px-6 py-3 rounded-xl text-sm font-bold bg-[#1e293b] text-white shadow-md hover:bg-black transition-colors">
+        <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row justify-end gap-3 pb-24 sm:pb-4">
+            <a href="{{ route('admin.roles.index') }}" class="px-6 py-3 rounded-xl text-sm font-bold bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 text-center transition">Cancel</a>
+            <button type="submit" class="px-6 py-3 rounded-xl text-sm font-bold bg-[#1e293b] text-white shadow-md hover:bg-black transition-colors text-center">
                 <i class="fa-solid fa-plus mr-2"></i> Create User & Role
             </button>
         </div>

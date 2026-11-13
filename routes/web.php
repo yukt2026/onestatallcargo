@@ -259,6 +259,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/roles', [\App\Http\Controllers\AdminRoleController::class, 'store'])->name('admin.roles.store');
             Route::get('/roles/{id}/edit', [\App\Http\Controllers\AdminRoleController::class, 'edit'])->name('admin.roles.edit');
             Route::put('/roles/{id}', [\App\Http\Controllers\AdminRoleController::class, 'update'])->name('admin.roles.update');
+            Route::post('/roles/{id}/wallet/credit', [\App\Http\Controllers\AdminRoleController::class, 'creditWallet'])->name('admin.roles.wallet.credit');
             Route::get('/billing', [\App\Http\Controllers\AdminBillingController::class, 'index'])->name('admin.billing.index');
             Route::post('/billing/{id}/pay', [\App\Http\Controllers\AdminBillingController::class, 'recordPayment'])->name('admin.billing.pay');
             Route::get('/billing/invoices', [\App\Http\Controllers\AdminBillingController::class, 'invoices'])->name('admin.billing.invoices');

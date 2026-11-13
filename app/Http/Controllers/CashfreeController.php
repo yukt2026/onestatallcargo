@@ -134,7 +134,7 @@ class CashfreeController extends Controller
         $orderId = $request->order_id;
         $userId = auth()->id();
         $appId = \App\Models\Setting::where('key', 'cashfree_app_id')->value('value');
-        $isTestMode = (empty($appId) || $appId === 'TEST_APP_ID') && (app()->environment('local') || app()->environment('testing'));
+        $isTestMode = empty($appId) || $appId === 'TEST_APP_ID' || $appId === 'SANDBOX' || app()->environment('local') || app()->environment('testing');
 
         return DB::transaction(function () use ($orderId, $userId, $request, $isTestMode) {
             $transaction = WalletTransaction::where('reference_id', $orderId)

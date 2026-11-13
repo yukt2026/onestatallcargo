@@ -124,6 +124,27 @@
                     <span class="text-gray-400 font-bold">₹</span>
                     <input type="number" step="0.01" name="wallet_balance" value="{{ $user->wallet_balance }}" class="w-full bg-transparent text-xl font-black text-gray-900 outline-none" required>
                 </div>
+
+                <!-- Instant Quick Recharge by Admin -->
+                <div class="mt-5 pt-4 border-t border-yellow-200">
+                    <p class="text-[11px] font-black text-amber-900 uppercase tracking-wider mb-2 flex items-center gap-1">
+                        <i class="fa-solid fa-bolt text-amber-500"></i> Instant Add / Credit Funds
+                    </p>
+                    <div class="space-y-2">
+                        <div class="flex gap-2">
+                            <input type="number" form="adminQuickCreditForm" name="amount" id="quickAddAmt" placeholder="Enter ₹ Amount" min="1" step="1" class="flex-1 bg-white border border-amber-300 rounded-xl px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500" required>
+                            <button type="submit" form="adminQuickCreditForm" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black text-xs transition shadow-sm flex items-center gap-1.5 whitespace-nowrap">
+                                <i class="fa-solid fa-plus-circle"></i> Add Now
+                            </button>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 pt-1">
+                            <button type="button" onclick="document.getElementById('quickAddAmt').value = 500;" class="px-2 py-1 bg-white border border-amber-200 rounded-lg text-[10px] font-extrabold text-amber-800 hover:bg-amber-100 transition">+ ₹500</button>
+                            <button type="button" onclick="document.getElementById('quickAddAmt').value = 1000;" class="px-2 py-1 bg-white border border-amber-200 rounded-lg text-[10px] font-extrabold text-amber-800 hover:bg-amber-100 transition">+ ₹1,000</button>
+                            <button type="button" onclick="document.getElementById('quickAddAmt').value = 2000;" class="px-2 py-1 bg-white border border-amber-200 rounded-lg text-[10px] font-extrabold text-amber-800 hover:bg-amber-100 transition">+ ₹2,000</button>
+                            <button type="button" onclick="document.getElementById('quickAddAmt').value = 5000;" class="px-2 py-1 bg-white border border-amber-200 rounded-lg text-[10px] font-extrabold text-amber-800 hover:bg-amber-100 transition">+ ₹5,000</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -221,14 +242,33 @@
                 </div>
             </div>
 
-            <!-- Submit Button -->
-            <div class="flex justify-end gap-3 pt-4">
-                <a href="{{ route('admin.roles.index') }}" class="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl shadow-sm hover:bg-gray-50 transition">Cancel</a>
-                <button type="submit" class="px-8 py-3 bg-[#064e3b] text-white font-bold rounded-xl shadow-md hover:bg-emerald-900 transition flex items-center gap-2">
-                    <i class="fa-solid fa-floppy-disk"></i> Save All Changes
+            <!-- Submit Button Area -->
+            <div class="flex flex-col sm:flex-row justify-end items-stretch sm:items-center gap-3 pt-6 pb-28 sm:pb-16">
+                <a href="{{ route('admin.roles.index') }}" class="order-2 sm:order-1 text-center px-6 py-3.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl shadow-sm hover:bg-gray-50 transition text-sm">
+                    <i class="fa-solid fa-arrow-left mr-1"></i> Back to User List
+                </a>
+                <button type="submit" class="order-1 sm:order-2 justify-center px-8 py-3.5 bg-[#064e3b] hover:bg-emerald-800 text-white font-extrabold rounded-xl shadow-lg hover:shadow-xl transition flex items-center gap-2 text-base">
+                    <i class="fa-solid fa-floppy-disk text-lg"></i> Save All Changes
                 </button>
             </div>
         </div>
     </form>
+
+    <!-- Hidden Quick Credit Form -->
+    <form id="adminQuickCreditForm" action="{{ route('admin.roles.wallet.credit', $user->id) }}" method="POST" style="display:none;">
+        @csrf
+        <input type="hidden" name="type" value="credit">
+        <input type="hidden" name="remarks" value="Direct wallet recharge from Admin User Edit">
+    </form>
+
+    <!-- Mobile Sticky Floating Bottom Save Bar -->
+    <div class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-gray-200 p-3 z-40 sm:hidden shadow-[0_-4px_25px_rgba(0,0,0,0.12)] flex gap-2">
+        <a href="{{ route('admin.roles.index') }}" class="flex-1 text-center py-3 px-3 bg-gray-100 text-gray-700 font-bold rounded-xl text-xs flex items-center justify-center">
+            Cancel
+        </a>
+        <button type="button" onclick="document.querySelector('form[action*=\"admin/roles/\"]').submit();" class="flex-[2] py-3 px-4 bg-[#064e3b] active:bg-emerald-950 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-md">
+            <i class="fa-solid fa-floppy-disk text-sm"></i> Save All Changes
+        </button>
+    </div>
 </div>
 @endsection

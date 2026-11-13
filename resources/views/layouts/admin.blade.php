@@ -29,7 +29,7 @@
         .sidebar-item.active i { color: var(--theme-active); }
     </style>
 </head>
-<body class="h-screen flex overflow-hidden bg-[#f3f5f9]" x-data="{ sidebarHover: false, isPinned: false, mobileSidebarOpen: false }">
+<body class="h-screen min-h-[100dvh] flex overflow-hidden bg-[#f3f5f9]" x-data="{ sidebarHover: false, isPinned: false, mobileSidebarOpen: false }">
     
     <!-- Desktop sidebar -->
 <!-- Mobile overlay -->
@@ -103,7 +103,7 @@
                     <div class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--theme-active)] text-[var(--theme-active-text)] font-bold">{{ substr(Auth::user()->name ?? 'A', 0, 1) }}</div>
                     <div class="ml-3">
                         <p class="text-sm font-medium text-white">{{ Auth::user()->name ?? 'Administrator' }}</p>
-                        <form action="{{ route('logout') }}" method="POST">@csrf <button type="submit" class="text-xs text-gray-400 hover:text-white"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button></form>
+                        <form action="{{ route('logout') }}" method="POST" class="mt-1">@csrf <button type="submit" class="flex items-center gap-1.5 px-2.5 py-1 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded-md text-xs font-bold transition"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button></form>
                     </div>
                 </div>
             </div>
@@ -115,10 +115,52 @@
         <div class="flex h-16 shrink-0 bg-white shadow-sm border-b border-gray-200">
             <button type="button" @click="mobileSidebarOpen = true" class="px-4 text-gray-500 md:hidden border-r border-gray-200"><i class="fa-solid fa-bars text-xl"></i></button>
             <div class="flex flex-1 justify-between px-4 items-center">
-                <h2 class="text-lg font-bold text-gray-800 hidden sm:block">OneStall Cargo Command Center</h2>
+                <div class="flex items-center gap-2">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <h2 class="text-sm sm:text-base font-extrabold text-gray-800">
+                        <span class="hidden sm:inline">OneStall Cargo Command Center</span>
+                        <span class="sm:hidden">OneStall Admin</span>
+                    </h2>
+                </div>
+
+                <!-- Right: Admin Profile & Menu -->
+                <div class="flex items-center gap-2 sm:gap-3" x-data="{ openAdminMenu: false }">
+                    <!-- User Profile Dropdown -->
+                    <div class="relative">
+                        <button @click="openAdminMenu = !openAdminMenu" class="flex items-center gap-2 p-1.5 rounded-xl hover:bg-gray-100 transition focus:outline-none">
+                            <div class="w-8 h-8 rounded-full bg-slate-900 text-yellow-400 font-black text-xs flex items-center justify-center shadow-xs">
+                                {{ strtoupper(substr(Auth::user()->name ?? 'A', 0, 1)) }}
+                            </div>
+                            <span class="text-xs font-bold text-gray-700 hidden md:block">{{ Auth::user()->name ?? 'Admin' }}</span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-gray-400"></i>
+                        </button>
+
+                        <div x-show="openAdminMenu" @click.away="openAdminMenu = false" class="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-2xl shadow-xl py-2 z-50 text-left" style="display: none;" x-transition>
+                            <div class="px-4 py-2 border-b border-gray-100 mb-1">
+                                <p class="text-xs font-extrabold text-gray-900 truncate">{{ Auth::user()->name ?? 'Administrator' }}</p>
+                                <p class="text-[10px] text-gray-500 truncate">{{ Auth::user()->email ?? '' }}</p>
+                                <span class="inline-block mt-1 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[9px] font-black rounded-full uppercase">Super Admin</span>
+                            </div>
+
+                            <a href="{{ route('admin.settings.index') }}" class="flex items-center px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:text-emerald-700 transition">
+                                <i class="fa-solid fa-gear w-5 text-gray-400"></i> System Settings
+                            </a>
+                            <a href="{{ route('admin.roles.index') }}" class="flex items-center px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:text-emerald-700 transition">
+                                <i class="fa-solid fa-user-shield w-5 text-gray-400"></i> Users & Roles
+                            </a>
+                            
+                            <form action="{{ route('logout') }}" method="POST" class="border-t border-gray-100 pt-1 mt-1">
+                                @csrf
+                                <button type="submit" class="w-full text-left px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center transition">
+                                    <i class="fa-solid fa-arrow-right-from-bracket w-5 text-red-500"></i> Log Out
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        <main class="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
+        <main class="flex-1 overflow-y-auto p-3 sm:p-6 md:p-8 pb-32 sm:pb-28" style="-webkit-overflow-scrolling: touch;">
             @if(session('success'))
                 <div class="mb-6 p-4 rounded-xl" style="background-color: #f0fdf4; border: 1px solid #16a34a; color: #16a34a;"><i class="fa-solid fa-circle-check"></i> {{ session('success') }}</div>
             @endif

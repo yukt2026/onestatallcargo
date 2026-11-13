@@ -95,9 +95,8 @@ class AdminRoleController extends Controller {
 
         $user->name = $validated['name'];
         $user->email = $validated['email'];
-        if (!empty($validated['phone'])) {
-            $user->phone = $validated['phone'];
-        }
+        $user->phone = $validated['phone'] ?? null;
+        $user->status = $validated['status'];
         if (!empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);
         }
@@ -128,7 +127,44 @@ class AdminRoleController extends Controller {
             );
         }
 
-        return redirect()->route('admin.roles.index')->with('success', 'User details & permissions updated successfully.');
+        return redirect()->route('admin.roles.edit', $user->id)->with('success', 'User details & permissions updated successfully.');
+    }
+
+    public function creditWallet(Request $request, $id) {
+        $user = User::findOrFail($id);
+
+        $request->validate([
+            'amount' => 'required|numeric|min:1|max:1000000',
+            'type' => 'nullable|in:credit,debit',
+            'remarks' => 'nullable|string|max:255'
+        ]);
+
+        $amount = (float)$request->amount;
+        $type = $request->input('type', 'credit');
+        $admin = auth()->user();
+        $adminName = $admin ? $admin->name : 'Admin';
+        $remarks = $request->input('remarks') ?: ($type === 'credit' ? 'Manual Wallet Credit by Admin' : 'Manual Wallet Debit by Admin');
+        $auditDesc = "{$remarks} (Processed by {$adminName})";
+
+        if ($type === 'debit') {
+            app(\App\Services\WalletService::class)->deduct(
+                $user->id,
+                $amount,
+                $auditDesc,
+                'ADMIN_DEBIT_' . strtoupper(\Illuminate\Support\Str::random(8))
+            );
+            $msg = '₹' . number_format($amount, 2) . ' debited from user wallet successfully.';
+        } else {
+            app(\App\Services\WalletService::class)->credit(
+                $user->id,
+                $amount,
+                $auditDesc,
+                'ADMIN_CREDIT_' . strtoupper(\Illuminate\Support\Str::random(8))
+            );
+            $msg = '₹' . number_format($amount, 2) . ' credited to user wallet successfully.';
+        }
+
+        return redirect()->route('admin.roles.edit', $user->id)->with('success', $msg);
     }
 }
 
