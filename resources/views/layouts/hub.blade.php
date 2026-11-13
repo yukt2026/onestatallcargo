@@ -166,6 +166,20 @@
         
         <!-- Page Content -->
         <div class="flex-1 overflow-y-auto bg-gray-50 p-4 lg:p-8">
+            @if(session('success'))
+                <div class="mb-6 p-4 rounded-xl font-semibold bg-emerald-50 border border-emerald-300 text-emerald-800 flex items-center shadow-xs">
+                    <i class="fa-solid fa-circle-check mr-2 text-emerald-600 text-lg"></i> {{ session('success') }}
+                </div>
+            @endif
+            @if(session('error'))
+                <div class="mb-6 p-4 rounded-xl font-bold bg-rose-50 border-2 border-rose-400 text-rose-900 flex items-start gap-3 shadow-md">
+                    <i class="fa-solid fa-circle-exclamation text-rose-600 text-xl mt-0.5 shrink-0"></i>
+                    <div>
+                        <div class="font-extrabold text-sm text-rose-800">Error Notice:</div>
+                        <div class="text-xs text-rose-700 mt-0.5">{{ session('error') }}</div>
+                    </div>
+                </div>
+            @endif
             @yield('content')
         </div>
         

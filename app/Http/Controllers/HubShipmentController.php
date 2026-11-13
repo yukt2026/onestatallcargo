@@ -278,6 +278,13 @@ class HubShipmentController extends Controller
             }
         }
 
+        if (!$isEdit) {
+            $userBal = (float)($user->wallet_balance ?? 0);
+            if ($userBal < $totalAmount) {
+                return back()->with('error', "Insufficient wallet balance (Available: ₹" . number_format($userBal, 2) . ", Required: ₹" . number_format($totalAmount, 2) . "). Please recharge your wallet before booking.");
+            }
+        }
+
         try {
             DB::transaction(function () use ($user, $isEdit, $shipment, $totalAmount, $validated, $request, $is_cod, $isInternational) {
                 if (!$isEdit) {
@@ -704,64 +711,31 @@ class HubShipmentController extends Controller
         if (in_array(strtolower(trim($shipment->status)), $shippableStatuses)) {
             $newCharge = $request->input('shipping_charge');
             $courier = $request->input('courier_partner');
-            
-            if ($newCharge !== null && $courier) {
-                $newCharge = round((float)$newCharge, 2);
-                $payerId = ($shipment->user_id && \App\Models\User::where('id', $shipment->user_id)->exists()) 
-                    ? $shipment->user_id 
-                    : Auth::id();
 
-                // Check how much has already been debited from wallet for this shipment
-                $alreadyDebited = (float) \App\Models\WalletTransaction::where('reference_id', $shipment->awb_number)
-                    ->where('type', 'debit')
-                    ->where('status', 'success')
-                    ->sum('amount');
-
-                if ($alreadyDebited <= 0) {
-                    // Full amount must be deducted as no previous payment was made
-                    if ($newCharge > 0) {
-                        try {
-                            app(\App\Services\WalletService::class)->deduct(
-                                $payerId, 
-                                $newCharge, 
-                                'Shipment Freight Deduction: ' . $courier, 
-                                $shipment->awb_number
-                            );
-                        } catch (\Exception $e) {
-                            return back()->with('error', 'Payment deduction failed: ' . $e->getMessage() . ' Please recharge your wallet.');
-                        }
-                    }
-                } else {
-                    // Only deduct/credit the difference
-                    $diff = round($newCharge - $alreadyDebited, 2);
-                    if ($diff > 0) {
-                        try {
-                            app(\App\Services\WalletService::class)->deduct(
-                                $payerId, 
-                                $diff, 
-                                'Courier Upgrade Upcharge: ' . $courier, 
-                                $shipment->awb_number
-                            );
-                        } catch (\Exception $e) {
-                            return back()->with('error', 'Payment deduction failed: ' . $e->getMessage() . ' Please recharge your wallet.');
-                        }
-                    } elseif ($diff < 0) {
-                        app(\App\Services\WalletService::class)->credit(
-                            $payerId, 
-                            abs($diff), 
-                            'Courier Downgrade Savings: ' . $courier, 
-                            $shipment->awb_number
-                        );
-                    }
-                }
-                
-                $shipment->shipping_charge = $newCharge;
-                $shipment->total_amount = $newCharge;
-                $shipment->courier_partner = $courier;
+            if ($newCharge === null || empty($courier)) {
+                return back()->with('error', 'Please select a valid courier partner before shipping.');
             }
 
-            // If courier is Xpressbees, trigger real manifest API
-            if ($courier && stripos($courier, 'xpressbees') !== false) {
+            $newCharge = round((float)$newCharge, 2);
+            $payerId = ($shipment->user_id && \App\Models\User::where('id', $shipment->user_id)->exists()) 
+                ? $shipment->user_id 
+                : Auth::id();
+            $payer = \App\Models\User::find($payerId);
+
+            // Calculate wallet requirements without deducting yet
+            $alreadyDebited = (float) \App\Models\WalletTransaction::where('reference_id', $shipment->awb_number)
+                ->where('type', 'debit')
+                ->where('status', 'success')
+                ->sum('amount');
+
+            $diff = ($alreadyDebited <= 0) ? $newCharge : round($newCharge - $alreadyDebited, 2);
+            if ($diff > 0 && ($payer->wallet_balance ?? 0) < $diff) {
+                return back()->with('error', "Insufficient wallet balance (Available: ₹" . number_format($payer->wallet_balance ?? 0, 2) . ", Required: ₹" . number_format($diff, 2) . "). Please recharge your wallet.");
+            }
+
+            // 1. If courier is Xpressbees, trigger real manifest API FIRST before touching wallet
+            $courierAwb = null;
+            if (stripos($courier, 'xpressbees') !== false) {
                 try {
                     $xbService = new \App\Services\Couriers\XpressbeesService();
                     $xbRes = $xbService->createShipment([
@@ -788,31 +762,77 @@ class HubShipmentController extends Controller
                     ]);
 
                     if ($xbRes['status'] === 'success') {
-                        $shipment->courier_awb = $xbRes['awb'];
-                        $shipment->awb_number = $xbRes['awb'];
+                        $courierAwb = $xbRes['awb'];
                     } else {
-                        \Illuminate\Support\Facades\Log::warning("Xpressbees manifest error for shipment {$shipment->id}: " . ($xbRes['message'] ?? ''));
-                        return back()->with('error', 'Xpressbees manifestation failed: ' . ($xbRes['message'] ?? 'Error pushing to Xpressbees'));
+                        $errMsg = $xbRes['message'] ?? 'Error pushing order to Xpressbees';
+                        \Illuminate\Support\Facades\Log::warning("Xpressbees manifest error for shipment {$shipment->id}: {$errMsg}");
+                        return back()->with('error', "Xpressbees Manifestation Failed: {$errMsg}. (No wallet amount was deducted)");
                     }
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error("Xpressbees exception for shipment {$shipment->id}: " . $e->getMessage());
-                    return back()->with('error', 'Xpressbees API Error: ' . $e->getMessage());
+                    return back()->with('error', "Xpressbees API Error: " . $e->getMessage() . ". (No wallet amount was deducted)");
                 }
             }
 
-            $shipment->status = 'Pickup Scheduled';
-            $shipment->save();
+            // 2. Courier manifestation succeeded (or in-house courier) -> NOW adjust wallet & save shipment inside DB transaction
+            \Illuminate\Support\Facades\DB::beginTransaction();
+            try {
+                if ($alreadyDebited <= 0) {
+                    if ($newCharge > 0) {
+                        app(\App\Services\WalletService::class)->deduct(
+                            $payerId, 
+                            $newCharge, 
+                            'Shipment Freight Deduction: ' . $courier, 
+                            $shipment->awb_number
+                        );
+                    }
+                } else {
+                    if ($diff > 0) {
+                        app(\App\Services\WalletService::class)->deduct(
+                            $payerId, 
+                            $diff, 
+                            'Courier Upgrade Upcharge: ' . $courier, 
+                            $shipment->awb_number
+                        );
+                    } elseif ($diff < 0) {
+                        app(\App\Services\WalletService::class)->credit(
+                            $payerId, 
+                            abs($diff), 
+                            'Courier Downgrade Savings: ' . $courier, 
+                            $shipment->awb_number
+                        );
+                    }
+                }
 
-            $remarks = $courier ? ('Shipment assigned to ' . $courier . (!empty($shipment->courier_awb) ? " (XB AWB: {$shipment->courier_awb})" : '')) : 'Shipment successfully marked for pickup.';
-            \App\Models\ShipmentEvent::create([
-                'shipment_id' => $shipment->id,
-                'status' => 'Pickup Scheduled',
-                'location' => $shipment->pickup_city ?? 'Origin Hub',
-                'remarks' => $remarks
-            ]);
+                $shipment->shipping_charge = $newCharge;
+                $shipment->total_amount = $newCharge;
+                $shipment->courier_partner = $courier;
+
+                if ($courierAwb) {
+                    $shipment->courier_awb = $courierAwb;
+                    $shipment->awb_number = $courierAwb;
+                }
+
+                $shipment->status = 'Pickup Scheduled';
+                $shipment->save();
+
+                $remarks = $courier ? ('Shipment assigned to ' . $courier . (!empty($shipment->courier_awb) ? " (AWB: {$shipment->courier_awb})" : '')) : 'Shipment successfully marked for pickup.';
+                \App\Models\ShipmentEvent::create([
+                    'shipment_id' => $shipment->id,
+                    'status' => 'Pickup Scheduled',
+                    'location' => $shipment->pickup_city ?? 'Origin Hub',
+                    'remarks' => $remarks
+                ]);
+
+                \Illuminate\Support\Facades\DB::commit();
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\DB::rollBack();
+                \Illuminate\Support\Facades\Log::error("Shipment processing failed: " . $e->getMessage());
+                return back()->with('error', 'Shipment processing failed: ' . $e->getMessage());
+            }
 
             $successMsg = $courier 
-                ? ('Shipment successfully assigned to ' . $courier . (!empty($shipment->courier_awb) ? " [AWB: {$shipment->courier_awb}]" : '') . ' and marked for pickup.')
+                ? ('Shipment successfully assigned to ' . $courier . (!empty($shipment->courier_awb) ? " [AWB: {$shipment->courier_awb}]" : '') . ' and scheduled for pickup.')
                 : 'Shipment successfully marked as Pickup Scheduled.';
 
             return back()->with('success', $successMsg);

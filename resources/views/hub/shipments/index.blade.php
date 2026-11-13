@@ -4,6 +4,16 @@
 @section('content')
 <div class="space-y-6" x-data="shipmentTable()">
     
+    @if(session('error'))
+        <div class="p-4 rounded-2xl bg-rose-50 border-2 border-rose-400 text-rose-900 font-bold flex items-start gap-3 shadow-md">
+            <i class="fa-solid fa-circle-exclamation text-rose-600 text-xl mt-0.5 shrink-0"></i>
+            <div>
+                <p class="font-extrabold text-sm text-rose-800">Action Notice / Error:</p>
+                <p class="text-xs text-rose-700 mt-0.5">{{ session('error') }}</p>
+            </div>
+        </div>
+    @endif
+    
     <!-- Top Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>

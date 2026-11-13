@@ -164,6 +164,9 @@
             @if(session('success'))
                 <div class="mb-6 p-4 rounded-xl" style="background-color: #f0fdf4; border: 1px solid #16a34a; color: #16a34a;"><i class="fa-solid fa-circle-check"></i> {{ session('success') }}</div>
             @endif
+            @if(session('error'))
+                <div class="mb-6 p-4 rounded-xl font-bold" style="background-color: #fff1f2; border: 2px solid #f43f5e; color: #9f1239;"><i class="fa-solid fa-circle-exclamation text-rose-600 mr-1.5"></i> {{ session('error') }}</div>
+            @endif
             @yield('content')
         </main>
     </div>

@@ -287,6 +287,19 @@ class XpressbeesService implements CourierInterface
 
             $manifestUrl = $this->credentials['endpoints']['manifest'] ?? 'https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward';
 
+            $cleanPhone = function($phone) {
+                $p = preg_replace('/[^0-9]/', '', (string)$phone);
+                if (strlen($p) === 12 && str_starts_with($p, '91')) {
+                    $p = substr($p, 2);
+                } elseif (strlen($p) === 11 && str_starts_with($p, '0')) {
+                    $p = substr($p, 1);
+                }
+                return (strlen($p) === 10) ? $p : (strlen($p) >= 10 ? substr($p, -10) : '9999999999');
+            };
+
+            $receiverPhone = $cleanPhone($shipmentDetails['receiver_phone'] ?? '9999999999');
+            $pickupPhone = $cleanPhone($shipmentDetails['pickup_phone'] ?? '9999999999');
+
             $manifestPayload = [
                 'BusinessAccountName' => $accountName,
                 'OrderNo' => $orderNo,
@@ -306,16 +319,16 @@ class XpressbeesService implements CourierInterface
 
                 'DropDetails' => [
                     'Addresses' => [[
-                        'Name' => $shipmentDetails['receiver_name'] ?? 'Customer',
-                        'Address' => $shipmentDetails['delivery_address'] ?? 'Customer Address',
-                        'City' => $shipmentDetails['delivery_city'] ?? 'City',
-                        'State' => $shipmentDetails['delivery_state'] ?? 'State',
-                        'PinCode' => (string)($shipmentDetails['delivery_pincode'] ?? '110001'),
+                        'Name' => substr(trim($shipmentDetails['receiver_name'] ?? 'Customer'), 0, 50),
+                        'Address' => substr(trim($shipmentDetails['delivery_address'] ?? 'Customer Address'), 0, 100),
+                        'City' => substr(trim($shipmentDetails['delivery_city'] ?? 'City'), 0, 50),
+                        'State' => substr(trim($shipmentDetails['delivery_state'] ?? 'State'), 0, 50),
+                        'PinCode' => preg_replace('/[^0-9]/', '', (string)($shipmentDetails['delivery_pincode'] ?? '110001')),
                         'Type' => 'Primary'
                     ]],
                     'ContactDetails' => [[
-                        'Name' => $shipmentDetails['receiver_name'] ?? 'Customer',
-                        'PhoneNo' => (string)($shipmentDetails['receiver_phone'] ?? '9999999999'),
+                        'Name' => substr(trim($shipmentDetails['receiver_name'] ?? 'Customer'), 0, 50),
+                        'PhoneNo' => $receiverPhone,
                         'Email' => $shipmentDetails['receiver_email'] ?? 'customer@example.com',
                         'Type' => 'Primary'
                     ]]
@@ -324,16 +337,16 @@ class XpressbeesService implements CourierInterface
                 'PickupDetails' => [
                     'PickupVendorCode' => $vendorCode,
                     'Addresses' => [[
-                        'Name' => $shipmentDetails['pickup_name'] ?? 'Warehouse',
-                        'Address' => $shipmentDetails['pickup_address'] ?? 'Origin Warehouse',
-                        'City' => $shipmentDetails['pickup_city'] ?? 'Gurugram',
-                        'State' => $shipmentDetails['pickup_state'] ?? 'Haryana',
-                        'PinCode' => (string)($shipmentDetails['pickup_pincode'] ?? '122015'),
+                        'Name' => substr(trim($shipmentDetails['pickup_name'] ?? 'Warehouse'), 0, 50),
+                        'Address' => substr(trim($shipmentDetails['pickup_address'] ?? 'Origin Warehouse'), 0, 100),
+                        'City' => substr(trim($shipmentDetails['pickup_city'] ?? 'Gurugram'), 0, 50),
+                        'State' => substr(trim($shipmentDetails['pickup_state'] ?? 'Haryana'), 0, 50),
+                        'PinCode' => preg_replace('/[^0-9]/', '', (string)($shipmentDetails['pickup_pincode'] ?? '122015')),
                         'Type' => 'Primary'
                     ]],
                     'ContactDetails' => [[
-                        'Name' => $shipmentDetails['pickup_name'] ?? 'Warehouse Contact',
-                        'PhoneNo' => (string)($shipmentDetails['pickup_phone'] ?? '9999999999'),
+                        'Name' => substr(trim($shipmentDetails['pickup_name'] ?? 'Warehouse Contact'), 0, 50),
+                        'PhoneNo' => $pickupPhone,
                         'Email' => 'dispatch@onestall.com',
                         'Type' => 'Primary'
                     ]]
@@ -342,16 +355,16 @@ class XpressbeesService implements CourierInterface
                 'RTODetails' => [
                     'PickupVendorCode' => $vendorCode,
                     'Addresses' => [[
-                        'Name' => $shipmentDetails['pickup_name'] ?? 'RTO Hub',
-                        'Address' => $shipmentDetails['pickup_address'] ?? 'Origin Warehouse',
-                        'City' => $shipmentDetails['pickup_city'] ?? 'Gurugram',
-                        'State' => $shipmentDetails['pickup_state'] ?? 'Haryana',
-                        'PinCode' => (string)($shipmentDetails['pickup_pincode'] ?? '122015'),
+                        'Name' => substr(trim($shipmentDetails['pickup_name'] ?? 'RTO Hub'), 0, 50),
+                        'Address' => substr(trim($shipmentDetails['pickup_address'] ?? 'Origin Warehouse'), 0, 100),
+                        'City' => substr(trim($shipmentDetails['pickup_city'] ?? 'Gurugram'), 0, 50),
+                        'State' => substr(trim($shipmentDetails['pickup_state'] ?? 'Haryana'), 0, 50),
+                        'PinCode' => preg_replace('/[^0-9]/', '', (string)($shipmentDetails['pickup_pincode'] ?? '122015')),
                         'Type' => 'Primary'
                     ]],
                     'ContactDetails' => [[
-                        'Name' => $shipmentDetails['pickup_name'] ?? 'RTO Contact',
-                        'PhoneNo' => (string)($shipmentDetails['pickup_phone'] ?? '9999999999'),
+                        'Name' => substr(trim($shipmentDetails['pickup_name'] ?? 'RTO Contact'), 0, 50),
+                        'PhoneNo' => $pickupPhone,
                         'Email' => 'rto@onestall.com',
                         'Type' => 'Primary'
                     ]]
