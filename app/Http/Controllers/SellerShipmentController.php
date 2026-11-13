@@ -668,6 +668,45 @@ class SellerShipmentController extends Controller
                 $shipment->courier_partner = $courier;
             }
 
+            // If courier is Xpressbees, trigger real manifest API
+            if ($courier && stripos($courier, 'xpressbees') !== false) {
+                try {
+                    $xbService = new \App\Services\Couriers\XpressbeesService();
+                    $xbRes = $xbService->createShipment([
+                        'order_id'        => $shipment->order_id ?: ('ORD-' . $shipment->id),
+                        'is_cod'          => (bool)$shipment->is_cod,
+                        'invoice_value'   => (float)($shipment->invoice_value ?: 100),
+                        'weight_kg'       => (float)($shipment->weight_kg ?: 0.5),
+                        'length_cm'       => (float)($shipment->length_cm ?: 10),
+                        'width_cm'        => (float)($shipment->width_cm ?: 10),
+                        'height_cm'       => (float)($shipment->height_cm ?: 10),
+                        'receiver_name'   => $shipment->receiver_name ?: 'Customer',
+                        'receiver_phone'  => $shipment->receiver_phone ?: '9999999999',
+                        'receiver_email'  => $shipment->receiver_email ?: 'customer@example.com',
+                        'delivery_address'=> $shipment->delivery_address ?: 'Customer Address',
+                        'delivery_city'   => $shipment->delivery_city ?: 'City',
+                        'delivery_state'  => $shipment->delivery_state ?: 'Delhi',
+                        'delivery_pincode'=> $shipment->delivery_pincode ?: '110001',
+                        'pickup_name'     => $shipment->pickup_name ?: 'Warehouse',
+                        'pickup_phone'    => $shipment->pickup_phone ?: '9999999999',
+                        'pickup_address'  => $shipment->pickup_address ?: 'Origin Address',
+                        'pickup_city'     => $shipment->pickup_city ?: 'Gurugram',
+                        'pickup_state'    => $shipment->pickup_state ?: 'Haryana',
+                        'pickup_pincode'  => $shipment->pickup_pincode ?: '122015',
+                    ]);
+
+                    if ($xbRes['status'] === 'success') {
+                        $shipment->courier_awb = $xbRes['awb'];
+                    } else {
+                        \Illuminate\Support\Facades\Log::warning("Xpressbees manifest error for shipment {$shipment->id}: " . ($xbRes['message'] ?? ''));
+                        return back()->with('error', 'Xpressbees manifestation failed: ' . ($xbRes['message'] ?? 'Error pushing to Xpressbees'));
+                    }
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error("Xpressbees exception for shipment {$shipment->id}: " . $e->getMessage());
+                    return back()->with('error', 'Xpressbees API Error: ' . $e->getMessage());
+                }
+            }
+
             $shipment->status = 'Pickup Scheduled';
             $shipment->save();
 
@@ -675,10 +714,10 @@ class SellerShipmentController extends Controller
                 'shipment_id' => $shipment->id,
                 'status' => 'Pickup Scheduled',
                 'location' => 'Origin Hub',
-                'remarks' => 'Shipment assigned to ' . ($courier ?? 'Courier')
+                'remarks' => 'Shipment assigned to ' . ($courier ?? 'Courier') . (!empty($shipment->courier_awb) ? " (XB AWB: {$shipment->courier_awb})" : '')
             ]);
 
-            return back()->with('success', 'Shipment successfully assigned to ' . ($courier ?? 'Courier') . ' and marked for pickup.');
+            return back()->with('success', 'Shipment successfully assigned to ' . ($courier ?? 'Courier') . (!empty($shipment->courier_awb) ? " [AWB: {$shipment->courier_awb}]" : '') . ' and manifested for pickup.');
         }
 
         return back()->with('error', 'Shipment cannot be shipped at this stage.');
@@ -730,11 +769,22 @@ class SellerShipmentController extends Controller
                 ]);
             }
 
+            // If order was manifested to Xpressbees, notify Xpressbees via forward cancellation API
+            if (!empty($shipment->courier_awb) && stripos($shipment->courier_partner, 'xpressbees') !== false) {
+                try {
+                    $xbService = new \App\Services\Couriers\XpressbeesService();
+                    $xbCancel = $xbService->cancelShipment($shipment->courier_awb, 'Cancelled by Seller');
+                    \Illuminate\Support\Facades\Log::info("Xpressbees cancellation for {$shipment->courier_awb}: ", $xbCancel);
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error("Xpressbees cancellation failed for {$shipment->courier_awb}: " . $e->getMessage());
+                }
+            }
+
             \App\Models\ShipmentEvent::create([
                 'shipment_id' => $shipment->id,
                 'status' => 'Cancelled',
                 'location' => $shipment->pickup_city ?? 'Seller Warehouse',
-                'remarks' => 'Shipment cancelled by Seller. Amount refunded to wallet.'
+                'remarks' => 'Shipment cancelled by Seller.' . (!empty($shipment->courier_awb) ? " (XB AWB {$shipment->courier_awb} cancelled on Xpressbees)" : '') . ' Amount refunded to wallet.'
             ]);
 
             return back()->with('success', 'Shipment cancelled successfully and amount refunded to wallet.');

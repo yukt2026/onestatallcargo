@@ -42,7 +42,8 @@ class XpressbeesService implements CourierInterface
 
     public function __construct(array $credentials = [])
     {
-        $this->credentials = $credentials;
+        $configCreds = config('services.xpressbees') ?? [];
+        $this->credentials = array_merge($configCreds, array_filter($credentials));
     }
 
 
@@ -72,7 +73,34 @@ class XpressbeesService implements CourierInterface
             ->first();
         
         if (!$rateCard) {
-            return ['status' => 'error', 'message' => 'Active rate card not found for Xpressbees'];
+            // Standard fallback rate for Xpressbees (Zone based)
+            $zoneMultipliers = [0 => 38.00, 1 => 44.00, 2 => 52.00, 3 => 65.00, 4 => 85.00];
+            $baseFreight = ($zoneMultipliers[$zoneIndex] ?? 55.00) + (max(0, $weight - 0.5) * 35.00);
+            $fsc = round($baseFreight * 0.10, 2);
+            $subtotal = round($baseFreight + $fsc, 2);
+            $codCharge = $is_cod ? max(35.00, round($invoice_value * 0.015, 2)) : 0;
+            $total = round($subtotal + $codCharge, 2);
+
+            return [
+                'status'         => 'success',
+                'provider'       => 'Xpressbees',
+                'zone'           => $zoneName,
+                'weight_charged' => $weight,
+                'base_freight'   => $baseFreight,
+                'fsc'            => $fsc,
+                'margin_pct'     => '0%',
+                'subtotal'       => $subtotal,
+                'cod_charge'     => $codCharge,
+                'cod_formula'    => "Max(₹35, 1.5% of invoice value)",
+                'base_rate'      => $total,
+                'total'          => $total,
+                'breakdown'      => [
+                    'Base Freight' => "₹{$baseFreight}",
+                    'FSC (10%)'    => "₹{$fsc}",
+                    'COD Charge'   => $is_cod ? "₹{$codCharge}" : 'N/A',
+                    'Grand Total'  => "₹{$total}",
+                ],
+            ];
         }
 
         $zoneRate = $rateCard->zones->firstWhere('zone_name', $zoneName);
@@ -182,146 +210,176 @@ class XpressbeesService implements CourierInterface
         return true;
     }
 
+    public function getNextAvailableAwb(): string
+    {
+        $awbRecord = \App\Models\XpressbeesAwb::where('status', 'available')->orderBy('id', 'asc')->lockForUpdate()->first();
+        if ($awbRecord) {
+            return $awbRecord->awb_number;
+        }
+
+        // If none available, generate a new batch
+        $token = $this->getToken();
+        $headers = [
+            'Token' => $token,
+            'XBkey' => $this->credentials['xb_key'] ?? '',
+            'Content-Type' => 'application/json'
+        ];
+
+        $awbUrl = $this->credentials['endpoints']['awb_series'] ?? 'https://xbclientapi.xbees.in/POSTShipmentService.svc/AWBNumberSeriesGeneration';
+        $awbGenResponse = Http::timeout(15)->withHeaders($headers)->post($awbUrl, [
+            'BusinessUnit' => 'ECOM',
+            'ServiceType' => 'FORWARD',
+            'DeliveryType' => 'PREPAID',
+            'Count' => 1
+        ]);
+
+        if ($awbGenResponse->successful() && $awbGenResponse->json('ReturnCode') === 100) {
+            $batchId = $awbGenResponse->json('BatchID');
+            $awbFetchUrl = $this->credentials['endpoints']['awb_generated'] ?? 'https://xbclientapi.xbees.in/TrackingService.svc/GetAWBNumberGeneratedSeries';
+            $awbFetchResponse = Http::timeout(15)->withHeaders($headers)->post($awbFetchUrl, [
+                'BusinessUnit' => 'ECOM',
+                'ServiceType' => 'FORWARD',
+                'BatchID' => $batchId
+            ]);
+
+            $series = $awbFetchResponse->json('AWBNoSeries');
+            if (!empty($series) && is_array($series)) {
+                $now = now();
+                $rows = [];
+                foreach ($series as $num) {
+                    $rows[] = [
+                        'awb_number' => (string)$num,
+                        'status' => 'available',
+                        'type' => 'AWB',
+                        'created_at' => $now,
+                        'updated_at' => $now
+                    ];
+                }
+                foreach (array_chunk($rows, 200) as $chunk) {
+                    \App\Models\XpressbeesAwb::insertOrIgnore($chunk);
+                }
+            }
+        }
+
+        $fresh = \App\Models\XpressbeesAwb::where('status', 'available')->orderBy('id', 'asc')->first();
+        if ($fresh) {
+            return $fresh->awb_number;
+        }
+
+        throw new \Exception("Could not allocate a valid Xpressbees AWB number.");
+    }
+
     public function createShipment(array $shipmentDetails): array
     {
         try {
             $token = $this->getToken();
             $headers = [
                 'Token' => $token,
-                'XBkey' => $this->credentials['xb_key'] ?? ''
+                'XBkey' => $this->credentials['xb_key'] ?? '',
+                'Content-Type' => 'application/json'
             ];
 
-            // Step 1: Generate AWB Batch
-            $awbUrl = $this->credentials['endpoints']['awb_series'] ?? 'https://xbclientapi.xbees.in/POSTShipmentService.svc/AWBNumberSeriesGeneration';
-            $awbGenResponse = Http::timeout(10)->withHeaders($headers)->post($awbUrl, [
-                'BusinessUnit' => 'ECOM',
-                'ServiceType' => 'FORWARD',
-                'DeliveryType' => ($shipmentDetails['is_cod'] ?? false) ? 'COD' : 'PREPAID',
-                'Count' => 1
-            ]);
+            // Allocate next available AWB
+            $awbNumber = $shipmentDetails['awb_number'] ?? $this->getNextAvailableAwb();
+            $orderNo = (string)($shipmentDetails['order_id'] ?? ('ORD-' . time()));
+            $vendorCode = (string)($this->credentials['vendor_code'] ?? '38914');
+            $accountName = $this->credentials['client_name'] ?? 'Onestall';
 
-            if (!$awbGenResponse->successful() || $awbGenResponse->json('ReturnCode') !== 100) {
-                return ['status' => 'error', 'message' => 'Failed to generate AWB Batch: ' . $awbGenResponse->body()];
-            }
-            
-            $batchId = $awbGenResponse->json('BatchID');
-
-            // Step 2: Fetch AWB from Batch
-            $awbFetchUrl = 'https://xbclientapi.xbees.in/TrackingService.svc/GetAWBNumberGeneratedSeries';
-            $awbFetchResponse = Http::timeout(10)->withHeaders($headers)->post($awbFetchUrl, [
-                'BusinessUnit' => 'ECOM',
-                'ServiceType' => 'FORWARD',
-                'BatchID' => $batchId
-            ]);
-
-            if (!$awbFetchResponse->successful() || $awbFetchResponse->json('ReturnCode') !== 100) {
-                return ['status' => 'error', 'message' => 'Failed to fetch AWB from Batch: ' . $awbFetchResponse->body()];
-            }
-
-            $awbSeries = $awbFetchResponse->json('AWBNoSeries');
-            if (empty($awbSeries) || !is_array($awbSeries)) {
-                return ['status' => 'error', 'message' => 'No AWB found in batch response'];
-            }
-
-            $awbNumber = $awbSeries[0];
-
-            // Step 2: Manifest Forward
             $manifestUrl = $this->credentials['endpoints']['manifest'] ?? 'https://apishipmentmanifestation.xbees.in/shipmentmanifestation/forward';
-            
+
             $manifestPayload = [
-                'ManifestDetails' => [
-                    [
-                        'ManifestID' => 'MF' . time() . rand(100, 999),
-                        'AirWayBillNO' => $awbNumber,
-                        'BusinessAccountName' => 'Onestall', // Usually ClientName or Business Account Name
-                        'OrderNo' => $shipmentDetails['order_id'] ?? uniqid(),
-                        'OrderType' => ($shipmentDetails['is_cod'] ?? false) ? 'COD' : 'PrePaid',
-                        'CollectibleAmount' => ($shipmentDetails['is_cod'] ?? false) ? (string)($shipmentDetails['invoice_value'] ?? 0) : '0',
-                        'DeclaredValue' => (string)($shipmentDetails['invoice_value'] ?? 0),
-                        'PickupType' => 'Vendor',
-                        'Quantity' => '1',
-                        'ServiceType' => 'SD', // SD typically means Standard Delivery
-                        'Weight' => (string)($shipmentDetails['weight_kg'] ?? 0.5),
-                        'Length' => (string)($shipmentDetails['length_cm'] ?? 10),
-                        'Breadth' => (string)($shipmentDetails['width_cm'] ?? 10),
-                        'Height' => (string)($shipmentDetails['height_cm'] ?? 10),
-                        
-                        'DropDetails' => [
-                            'Addresses' => [
-                                [
-                                    'AddressName' => $shipmentDetails['receiver_name'] ?? 'Customer',
-                                    'AddressAddress1' => $shipmentDetails['delivery_address'] ?? 'Address',
-                                    'AddressAddress2' => '',
-                                    'AddressCity' => $shipmentDetails['delivery_city'] ?? 'City',
-                                    'AddressState' => $shipmentDetails['delivery_state'] ?? 'State',
-                                    'AddressPincode' => $shipmentDetails['delivery_pincode'] ?? '000000',
-                                    'AddressType' => 'Drop'
-                                ]
-                            ],
-                            'ContactDetails' => [
-                                [
-                                    'ContactName' => $shipmentDetails['receiver_name'] ?? 'Customer',
-                                    'ContactPhoneNo' => $shipmentDetails['receiver_phone'] ?? '9999999999',
-                                    'ContactEmailId' => 'customer@example.com',
-                                    'ContactType' => 'Drop'
-                                ]
-                            ]
-                        ],
-                        
-                        'PickupDetails' => [
-                            'Addresses' => [
-                                [
-                                    'AddressName' => $shipmentDetails['pickup_name'] ?? 'Pickup Name',
-                                    'AddressAddress1' => $shipmentDetails['pickup_address'] ?? 'Pickup Address',
-                                    'AddressAddress2' => '',
-                                    'AddressCity' => $shipmentDetails['pickup_city'] ?? 'City',
-                                    'AddressState' => $shipmentDetails['pickup_state'] ?? 'State',
-                                    'AddressPincode' => $shipmentDetails['pickup_pincode'] ?? '000000',
-                                    'AddressType' => 'Pickup'
-                                ]
-                            ],
-                            'ContactDetails' => [
-                                [
-                                    'ContactName' => $shipmentDetails['pickup_name'] ?? 'Pickup Contact',
-                                    'ContactPhoneNo' => $shipmentDetails['pickup_phone'] ?? '9999999999',
-                                    'ContactEmailId' => 'vendor@onestall.com',
-                                    'ContactType' => 'Pickup'
-                                ]
-                            ]
-                        ],
-                        
-                        'RTODetails' => [
-                            'Addresses' => [
-                                [
-                                    'AddressName' => $shipmentDetails['pickup_name'] ?? 'RTO Name',
-                                    'AddressAddress1' => $shipmentDetails['pickup_address'] ?? 'RTO Address',
-                                    'AddressAddress2' => '',
-                                    'AddressCity' => $shipmentDetails['pickup_city'] ?? 'City',
-                                    'AddressState' => $shipmentDetails['pickup_state'] ?? 'State',
-                                    'AddressPincode' => $shipmentDetails['pickup_pincode'] ?? '000000',
-                                    'AddressType' => 'RTO'
-                                ]
-                            ],
-                            'ContactDetails' => [
-                                [
-                                    'ContactName' => $shipmentDetails['pickup_name'] ?? 'RTO Contact',
-                                    'ContactPhoneNo' => $shipmentDetails['pickup_phone'] ?? '9999999999',
-                                    'ContactEmailId' => 'vendor@onestall.com',
-                                    'ContactType' => 'RTO'
-                                ]
-                            ]
-                        ]
-                    ]
+                'BusinessAccountName' => $accountName,
+                'OrderNo' => $orderNo,
+                'AirWayBillNO' => (string)$awbNumber,
+                'ManifestID' => 'MF' . time() . rand(10, 99),
+                'OrderType' => ($shipmentDetails['is_cod'] ?? false) ? 'COD' : 'PrePaid',
+                'CollectibleAmount' => ($shipmentDetails['is_cod'] ?? false) ? (string)($shipmentDetails['invoice_value'] ?? 0) : '0',
+                'DeclaredValue' => (string)max(100, $shipmentDetails['invoice_value'] ?? 100),
+                'PickupType' => 'Vendor',
+                'PickupVendorCode' => $vendorCode,
+                'Quantity' => (string)($shipmentDetails['quantity'] ?? '1'),
+                'ServiceType' => 'SD',
+                'Weight' => (string)max(0.1, $shipmentDetails['weight_kg'] ?? 0.5),
+                'Length' => (string)max(1, $shipmentDetails['length_cm'] ?? 10),
+                'Breadth' => (string)max(1, $shipmentDetails['width_cm'] ?? 10),
+                'Height' => (string)max(1, $shipmentDetails['height_cm'] ?? 10),
+
+                'DropDetails' => [
+                    'Addresses' => [[
+                        'Name' => $shipmentDetails['receiver_name'] ?? 'Customer',
+                        'Address' => $shipmentDetails['delivery_address'] ?? 'Customer Address',
+                        'City' => $shipmentDetails['delivery_city'] ?? 'City',
+                        'State' => $shipmentDetails['delivery_state'] ?? 'State',
+                        'PinCode' => (string)($shipmentDetails['delivery_pincode'] ?? '110001'),
+                        'Type' => 'Primary'
+                    ]],
+                    'ContactDetails' => [[
+                        'Name' => $shipmentDetails['receiver_name'] ?? 'Customer',
+                        'PhoneNo' => (string)($shipmentDetails['receiver_phone'] ?? '9999999999'),
+                        'Email' => $shipmentDetails['receiver_email'] ?? 'customer@example.com',
+                        'Type' => 'Primary'
+                    ]]
+                ],
+
+                'PickupDetails' => [
+                    'PickupVendorCode' => $vendorCode,
+                    'Addresses' => [[
+                        'Name' => $shipmentDetails['pickup_name'] ?? 'Warehouse',
+                        'Address' => $shipmentDetails['pickup_address'] ?? 'Origin Warehouse',
+                        'City' => $shipmentDetails['pickup_city'] ?? 'Gurugram',
+                        'State' => $shipmentDetails['pickup_state'] ?? 'Haryana',
+                        'PinCode' => (string)($shipmentDetails['pickup_pincode'] ?? '122015'),
+                        'Type' => 'Primary'
+                    ]],
+                    'ContactDetails' => [[
+                        'Name' => $shipmentDetails['pickup_name'] ?? 'Warehouse Contact',
+                        'PhoneNo' => (string)($shipmentDetails['pickup_phone'] ?? '9999999999'),
+                        'Email' => 'dispatch@onestall.com',
+                        'Type' => 'Primary'
+                    ]]
+                ],
+
+                'RTODetails' => [
+                    'PickupVendorCode' => $vendorCode,
+                    'Addresses' => [[
+                        'Name' => $shipmentDetails['pickup_name'] ?? 'RTO Hub',
+                        'Address' => $shipmentDetails['pickup_address'] ?? 'Origin Warehouse',
+                        'City' => $shipmentDetails['pickup_city'] ?? 'Gurugram',
+                        'State' => $shipmentDetails['pickup_state'] ?? 'Haryana',
+                        'PinCode' => (string)($shipmentDetails['pickup_pincode'] ?? '122015'),
+                        'Type' => 'Primary'
+                    ]],
+                    'ContactDetails' => [[
+                        'Name' => $shipmentDetails['pickup_name'] ?? 'RTO Contact',
+                        'PhoneNo' => (string)($shipmentDetails['pickup_phone'] ?? '9999999999'),
+                        'Email' => 'rto@onestall.com',
+                        'Type' => 'Primary'
+                    ]]
                 ]
             ];
 
-            $manifestResponse = Http::timeout(12)->withHeaders($headers)->post($manifestUrl, $manifestPayload);
+            $manifestResponse = Http::timeout(15)->withHeaders($headers)->post($manifestUrl, $manifestPayload);
 
             if ($manifestResponse->successful()) {
+                $resData = $manifestResponse->json();
+                if (isset($resData['ReturnCode']) && $resData['ReturnCode'] === 100) {
+                    // Mark AWB as used in database
+                    \App\Models\XpressbeesAwb::where('awb_number', $awbNumber)->update([
+                        'status' => 'used',
+                        'order_id' => $orderNo
+                    ]);
+
+                    return [
+                        'status' => 'success',
+                        'awb' => $awbNumber,
+                        'token_number' => $resData['TokenNumber'] ?? null,
+                        'provider_response' => $resData
+                    ];
+                }
+
                 return [
-                    'status' => 'success',
-                    'awb' => $awbNumber,
-                    'provider_response' => $manifestResponse->json()
+                    'status' => 'error',
+                    'message' => $resData['ReturnMessage'] ?? ('Manifest rejected with code ' . ($resData['ReturnCode'] ?? 'unknown'))
                 ];
             }
 
@@ -339,9 +397,11 @@ class XpressbeesService implements CourierInterface
             
             $response = Http::timeout(8)->withHeaders([
                 'Token' => $token,
-                'XBkey' => $this->credentials['xb_key'] ?? ''
+                'XBkey' => $this->credentials['xb_key'] ?? '',
+                'versionnumber' => 'v1',
+                'Content-Type' => 'application/json'
             ])->post($trackUrl, [
-                'AWBNo' => $awb
+                'AWBNumber' => $awb
             ]);
 
             if ($response->successful()) {
@@ -353,6 +413,42 @@ class XpressbeesService implements CourierInterface
             return ['status' => 'error', 'message' => 'Tracking failed: ' . $response->body()];
         } catch (\Exception $e) {
             return ['status' => 'error', 'message' => 'Exception during tracking: ' . $e->getMessage()];
+        }
+    }
+
+    public function cancelShipment(string $awb, string $reason = 'Cancelled by customer/seller'): array
+    {
+        try {
+            $token = $this->getToken();
+            $cancelUrl = $this->credentials['endpoints']['rto_notify'] ?? 'https://clientshipupdatesapi.xbees.in/forwardcancellation';
+
+            $response = Http::timeout(10)->withHeaders([
+                'Token' => $token,
+                'XBkey' => $this->credentials['xb_key'] ?? '',
+                'Content-Type' => 'application/json'
+            ])->post($cancelUrl, [
+                'ShippingID' => (string)$awb,
+                'CancellationReason' => $reason
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                if (isset($data['ReturnCode']) && $data['ReturnCode'] === 100) {
+                    return [
+                        'status' => 'success',
+                        'message' => $data['ReturnMessage'] ?? 'Shipment cancelled successfully on Xpressbees',
+                        'response' => $data
+                    ];
+                }
+                return [
+                    'status' => 'error',
+                    'message' => $data['ReturnMessage'] ?? 'Xpressbees cancellation rejected'
+                ];
+            }
+
+            return ['status' => 'error', 'message' => 'Xpressbees cancellation request failed: ' . $response->body()];
+        } catch (\Exception $e) {
+            return ['status' => 'error', 'message' => 'Exception during Xpressbees cancellation: ' . $e->getMessage()];
         }
     }
 

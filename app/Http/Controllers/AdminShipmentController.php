@@ -381,11 +381,22 @@ class AdminShipmentController extends Controller
             }
         }
 
+        // If order was manifested to Xpressbees, notify Xpressbees via forward cancellation API
+        if (!empty($shipment->courier_awb) && stripos($shipment->courier_partner, 'xpressbees') !== false) {
+            try {
+                $xbService = new \App\Services\Couriers\XpressbeesService();
+                $xbCancel = $xbService->cancelShipment($shipment->courier_awb, 'Cancelled by Admin');
+                \Illuminate\Support\Facades\Log::info("Xpressbees cancellation for {$shipment->courier_awb}: ", $xbCancel);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Xpressbees cancellation failed for {$shipment->courier_awb}: " . $e->getMessage());
+            }
+        }
+
         \App\Models\ShipmentEvent::create([
             'shipment_id' => $shipment->id,
             'status' => 'Cancelled',
             'location' => 'Admin Operations',
-            'remarks' => 'Shipment cancelled by Admin. Refund processed to user wallet.'
+            'remarks' => 'Shipment cancelled by Admin.' . (!empty($shipment->courier_awb) ? " (XB AWB {$shipment->courier_awb} cancelled on Xpressbees)" : '') . ' Refund processed to user wallet.'
         ]);
 
         return back()->with('success', 'Shipment cancelled successfully and amount refunded.');
