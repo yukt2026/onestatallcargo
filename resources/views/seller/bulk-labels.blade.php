@@ -258,14 +258,18 @@
             @php
                 $shipment = $item['shipment'];
                 $barcode = $item['barcode'] ?? null;
+                $isThirdParty = !empty($shipment->courier_awb) || (!empty($shipment->courier_partner) && stripos($shipment->courier_partner, 'onestall') === false);
+                $activeAwb = !empty($shipment->courier_awb) ? $shipment->courier_awb : $shipment->awb_number;
+                $courierTitle = $isThirdParty && !empty($shipment->courier_partner) ? strtoupper($shipment->courier_partner) : 'ONESTALL CARGO';
+                $courierSubtitle = $isThirdParty ? 'Fulfilled via OneStall Cargo' : 'delivering logistics happiness';
             @endphp
             <div class="label-page">
                 <div class="label-container">
                     <!-- Row 1: Logo & Order ID -->
                     <div class="label-row">
                         <div class="cell-left">
-                            <div class="header-logo">ONESTALL CARGO</div>
-                            <div class="header-tagline">delivering logistics happiness</div>
+                            <div class="header-logo">{{ $courierTitle }}</div>
+                            <div class="header-tagline">{{ $courierSubtitle }}</div>
                         </div>
                         <div class="cell-right">
                             <div>Order ID: <span style="font-weight: 800;">{{ $shipment->order_id ?? $shipment->awb_number }}</span></div>
@@ -275,7 +279,10 @@
                     <!-- Row 2: AWB NO & Payment -->
                     <div class="label-row">
                         <div class="cell-left">
-                            <div>AWB NO: <span style="font-weight: 800;">{{ $shipment->awb_number }}</span></div>
+                            <div>AWB NO: <span style="font-weight: 800;">{{ $activeAwb }}</span></div>
+                            @if($isThirdParty)
+                                <div style="font-size: 9px; color: #444; margin-top: 1px;">Courier: <strong>{{ $shipment->courier_partner }}</strong></div>
+                            @endif
                         </div>
                         <div class="cell-right">
                             <div style="font-weight: 800; font-size: 13px;">
@@ -307,7 +314,7 @@
                                 <div class="barcode-bars"></div>
                             @endif
                         </div>
-                        <div class="barcode-text">{{ $shipment->awb_number }}</div>
+                        <div class="barcode-text">{{ $activeAwb }}</div>
                     </div>
 
                     <!-- Consignee Details -->

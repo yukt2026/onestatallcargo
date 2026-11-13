@@ -210,13 +210,14 @@ class AdminShipmentController extends Controller
 
         // Generate Real Barcode safely
         $barcode = null;
+        $targetAwb = !empty($shipment->courier_awb) ? $shipment->courier_awb : $shipment->awb_number;
         try {
             if (class_exists(\Picqer\Barcode\BarcodeGeneratorSVG::class)) {
                 $generator = new \Picqer\Barcode\BarcodeGeneratorSVG();
-                $barcode = $generator->getBarcode($shipment->awb_number, $generator::TYPE_CODE_128, 2, 60);
+                $barcode = $generator->getBarcode($targetAwb, $generator::TYPE_CODE_128, 2, 60);
             }
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning("Barcode generation failed for {$shipment->awb_number}: " . $e->getMessage());
+            \Illuminate\Support\Facades\Log::warning("Barcode generation failed for {$targetAwb}: " . $e->getMessage());
             $barcode = null;
         }
 
@@ -304,9 +305,10 @@ class AdminShipmentController extends Controller
         $items = [];
         foreach ($shipments as $shipment) {
             $barcode = null;
-            if ($generator && !empty($shipment->awb_number)) {
+            $targetAwb = !empty($shipment->courier_awb) ? $shipment->courier_awb : $shipment->awb_number;
+            if ($generator && !empty($targetAwb)) {
                 try {
-                    $barcode = $generator->getBarcode($shipment->awb_number, $generator::TYPE_CODE_128, 2, 60);
+                    $barcode = $generator->getBarcode($targetAwb, $generator::TYPE_CODE_128, 2, 60);
                 } catch (\Throwable $e) {
                     $barcode = null;
                 }

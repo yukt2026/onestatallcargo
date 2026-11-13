@@ -89,7 +89,7 @@
         <input type="hidden" name="is_cod" :value="paymentMode === 'COD' ? '1' : '0'">
         <input type="hidden" name="payment_mode" :value="paymentMode">
         <input type="hidden" name="cod_amount" :value="paymentMode === 'COD' ? totalOrderValue() : ''">
-        <input type="hidden" name="ship_now" value="1">
+        <input type="hidden" name="ship_now" value="0">
         
         <!-- Custom Tabs mimicking BigShip -->
         <div class="flex border-b border-gray-200 mb-6 bg-transparent">

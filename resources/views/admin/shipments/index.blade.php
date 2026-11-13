@@ -148,7 +148,16 @@
                                 <input type="checkbox" value="{{ $shipment->id }}" x-model="selectedIds" class="rounded border-gray-300 accent-[#1e1b4b] cursor-pointer">
                             </td>
                             <td class="px-6 py-4">
-                                <span class="font-bold text-[var(--gold-deep)]">{{ $shipment->awb_number }}</span>
+                                <div class="font-bold text-gray-900">{{ $shipment->courier_awb ?: $shipment->awb_number }}</div>
+                                @if(!empty($shipment->courier_partner) && !in_array(strtolower(trim($shipment->status)), ['new', 'pending', 'new order', 'booked']))
+                                    <span class="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded text-[10px] font-black {{ stripos($shipment->courier_partner, 'onestall') !== false ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-indigo-50 text-indigo-800 border border-indigo-200' }}">
+                                        {{ $shipment->courier_partner }}
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-50 text-gray-500 border border-gray-200">
+                                        Pending Assignment
+                                    </span>
+                                @endif
                             </td>
                             <td class="px-6 py-4">{{ $shipment->created_at->format('d M Y, h:i A') }}</td>
                             <td class="px-6 py-4">{{ $shipment->user ? $shipment->user->name : 'N/A' }}</td>
@@ -264,10 +273,10 @@
                                       'bg-orange-50 text-orange-700 border border-orange-200': (activeOrder.status||'').toLowerCase().startsWith('rto'),
                                       'bg-rose-50 text-rose-700 border border-rose-200': ['ndr','action_required','undelivered'].includes((activeOrder.status||'').toLowerCase()) || (activeOrder.status||'').toLowerCase().startsWith('cancel')
                                   }"
-                                  x-text="activeOrder.status || 'Manifested'">
+                                  x-text="activeOrder.status || 'New'">
                             </span>
                         </div>
-                        <p class="text-xs text-gray-500 mt-1">Courier Partner: <span class="font-bold text-gray-800" x-text="activeOrder.courier_partner || 'Delhivery'"></span></p>
+                        <p class="text-xs text-gray-500 mt-1">Courier Partner: <span class="font-bold text-gray-800" x-text="activeOrder.courier_partner || 'Pending Assignment'"></span></p>
                     </div>
                     <button @click="showOrderModal = false" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">
                         <i class="fa-solid fa-xmark text-sm"></i>

@@ -16,6 +16,9 @@ class TrackController extends Controller
             $shipment = Shipment::where('awb_number', $searchAwb)
                 ->orWhere('awb_number', 'AWB-' . $numericPart)
                 ->orWhere('awb_number', $numericPart)
+                ->orWhere('courier_awb', $searchAwb)
+                ->orWhere('courier_awb', $numericPart)
+                ->orWhere('order_id', $searchAwb)
                 ->with(['events' => function($q) {
                     $q->orderBy('created_at', 'desc');
                 }])->first();
@@ -38,6 +41,9 @@ class TrackController extends Controller
         $shipment = Shipment::where('awb_number', $searchAwb)
             ->orWhere('awb_number', 'AWB-' . $numericPart)
             ->orWhere('awb_number', $numericPart)
+            ->orWhere('courier_awb', $searchAwb)
+            ->orWhere('courier_awb', $numericPart)
+            ->orWhere('order_id', $searchAwb)
             ->with(['events' => function($q) {
                 $q->orderBy('created_at', 'desc');
             }])->first();

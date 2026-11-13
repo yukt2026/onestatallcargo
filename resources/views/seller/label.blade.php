@@ -1,9 +1,15 @@
+@php
+    $isThirdParty = !empty($shipment->courier_awb) || (!empty($shipment->courier_partner) && stripos($shipment->courier_partner, 'onestall') === false);
+    $activeAwb = !empty($shipment->courier_awb) ? $shipment->courier_awb : $shipment->awb_number;
+    $courierTitle = $isThirdParty && !empty($shipment->courier_partner) ? strtoupper($shipment->courier_partner) : 'ONESTALL CARGO';
+    $courierSubtitle = $isThirdParty ? 'Fulfilled via OneStall Cargo' : 'delivering logistics happiness';
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shipping Label - {{ $shipment->awb_number }}</title>
+    <title>Shipping Label - {{ $activeAwb }}</title>
     <style>
         body {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -194,7 +200,10 @@
 <body onload="window.print()">
     <div class="no-print-bar">
         <div class="info">
-            AWB: {{ $shipment->awb_number }}
+            AWB: {{ $activeAwb }}
+            @if($isThirdParty)
+                <span style="margin-left: 8px; font-size: 10px; color: #4338ca; background: #eef2ff; padding: 2px 6px; rounded: 4px;">{{ $shipment->courier_partner }}</span>
+            @endif
         </div>
         <div class="btns">
             <button type="button" onclick="window.print()" class="btn-print">
@@ -210,8 +219,8 @@
         <!-- Row 1: Logo & Order ID -->
         <div class="label-row">
             <div class="cell-left">
-                <div class="header-logo">ONESTALL CARGO</div>
-                <div class="header-tagline">delivering logistics happiness</div>
+                <div class="header-logo">{{ $courierTitle }}</div>
+                <div class="header-tagline">{{ $courierSubtitle }}</div>
             </div>
             <div class="cell-right">
                 <div>Order ID: <span style="font-weight: 800;">{{ $shipment->order_id ?? $shipment->awb_number }}</span></div>
@@ -221,7 +230,10 @@
         <!-- Row 2: AWB NO & Payment -->
         <div class="label-row">
             <div class="cell-left">
-                <div>AWB NO: <span style="font-weight: 800;">{{ $shipment->awb_number }}</span></div>
+                <div>AWB NO: <span style="font-weight: 800;">{{ $activeAwb }}</span></div>
+                @if($isThirdParty)
+                    <div style="font-size: 9px; color: #444; margin-top: 1px;">Courier: <strong>{{ $shipment->courier_partner }}</strong></div>
+                @endif
             </div>
             <div class="cell-right">
                 <div style="font-weight: 800; font-size: 13px;">
@@ -253,7 +265,7 @@
                     <div class="barcode-bars"></div>
                 @endif
             </div>
-            <div class="barcode-text">{{ $shipment->awb_number }}</div>
+            <div class="barcode-text">{{ $activeAwb }}</div>
         </div>
 
         <!-- Consignee Details (Customer name, complete address & mobile number clearly visible) -->

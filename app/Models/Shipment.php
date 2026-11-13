@@ -52,4 +52,14 @@ class Shipment extends Model
     {
         return $this->hasMany(FranchiseCommission::class);
     }
+
+    public function getDisplayAwbAttribute(): string
+    {
+        return !empty($this->courier_awb) ? (string)$this->courier_awb : (string)$this->awb_number;
+    }
+
+    public function isThirdPartyCourier(): bool
+    {
+        return !empty($this->courier_partner) && stripos($this->courier_partner, 'onestall') === false;
+    }
 }

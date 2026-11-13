@@ -251,8 +251,17 @@
     product_sku: @json($shipment->product_sku ?: "N/A"),
     product_qty: {{ $shipment->product_qty ?? 1 }}
 })' class="font-bold text-[#4338ca] text-xs hover:underline block flex items-center gap-1.5">
-    {{ $shipment->awb_number }} <i class="fa-solid fa-arrow-up-right-from-square text-[9px] text-gray-400"></i>
+    {{ $shipment->courier_awb ?: $shipment->awb_number }} <i class="fa-solid fa-arrow-up-right-from-square text-[9px] text-gray-400"></i>
 </a>
+@if(!empty($shipment->courier_partner) && !in_array(strtolower(trim($shipment->status)), ['new', 'pending', 'new order', 'booked']))
+    <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded text-[10px] font-extrabold {{ stripos($shipment->courier_partner, 'onestall') !== false ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-indigo-50 text-indigo-800 border border-indigo-200' }}">
+        <i class="fa-solid fa-truck-fast text-[9px]"></i> {{ $shipment->courier_partner }}
+    </span>
+@else
+    <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-50 text-gray-500 border border-gray-200">
+        <i class="fa-regular fa-clock text-[9px] text-gray-400"></i> Pending Assignment
+    </span>
+@endif
                                 <div class="text-[10px] text-gray-500 mt-1">Synced: {{ $shipment->created_at->format('d M Y | h:i A') }}</div>
                                 <div class="text-[10px] text-gray-500">Created: {{ $shipment->created_at->format('d M Y | h:i A') }}</div>
                                 <div class="text-[10px] text-gray-400 font-semibold flex items-center gap-1 mt-1.5">
@@ -484,10 +493,10 @@
                                       'bg-emerald-50 text-emerald-700 border border-emerald-200': (activeOrder.status||'').toLowerCase() === 'delivered',
                                       'bg-rose-50 text-rose-700 border border-rose-200': (activeOrder.status||'').toLowerCase() === 'cancelled'
                                   }"
-                                  x-text="activeOrder.status || 'Manifested'">
+                                  x-text="activeOrder.status || 'New'">
                             </span>
                         </div>
-                        <p class="text-xs text-gray-500 mt-1">Courier Partner: <span class="font-bold text-gray-800" x-text="activeOrder.courier_partner || 'Delhivery'"></span></p>
+                        <p class="text-xs text-gray-500 mt-1">Courier Partner: <span class="font-bold text-gray-800" x-text="activeOrder.courier_partner || 'Pending Assignment'"></span></p>
                     </div>
                     <button @click="showOrderModal = false" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">
                         <i class="fa-solid fa-xmark text-sm"></i>

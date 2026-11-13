@@ -347,7 +347,9 @@ class HubShipmentController extends Controller
                 }
                 
                 if (!$isEdit) {
-                    $shipment->status = 'Manifested';
+                    $shipment->status = 'New';
+                    $shipment->courier_partner = null;
+                    $shipment->courier_awb = null;
                     app(\App\Services\ShipmentService::class)->assignRouting($shipment, $shipment->delivery_pincode);
                 }
                 
@@ -371,9 +373,9 @@ class HubShipmentController extends Controller
                 if (!$isEdit) {
                     \App\Models\ShipmentEvent::create([
                         'shipment_id' => $shipment->id,
-                        'status' => 'Manifested',
+                        'status' => 'New',
                         'location' => $shipment->pickup_city ?? 'Origin',
-                        'remarks' => 'Shipment Booked & Manifested successfully.'
+                        'remarks' => 'Order created successfully. Pending courier assignment.'
                     ]);
                 }
             });
@@ -385,7 +387,7 @@ class HubShipmentController extends Controller
             return redirect()->route('hub.shipments')->with('success', 'Order updated successfully.');
         }
 
-        return redirect()->route('hub.shipments')->with('success', "Order Booked! Forwarded to {$shipment->courier_partner} (AWB: {$shipment->awb_number}).");
+        return redirect()->route('hub.shipments')->with('success', "Order created successfully (AWB: {$shipment->awb_number}). Click 'Ship Now' to assign courier and schedule pickup.");
     }
 
     public function bulkCreate()
@@ -453,7 +455,9 @@ class HubShipmentController extends Controller
             
             // Fake calculation
             $shipment->total_amount = 55;
-            $shipment->status = 'Manifested';
+            $shipment->status = 'New';
+            $shipment->courier_partner = null;
+            $shipment->courier_awb = null;
             
             app(\App\Services\ShipmentService::class)->assignRouting($shipment, $shipment->delivery_pincode);
             $shipment->save();
@@ -785,6 +789,7 @@ class HubShipmentController extends Controller
 
                     if ($xbRes['status'] === 'success') {
                         $shipment->courier_awb = $xbRes['awb'];
+                        $shipment->awb_number = $xbRes['awb'];
                     } else {
                         \Illuminate\Support\Facades\Log::warning("Xpressbees manifest error for shipment {$shipment->id}: " . ($xbRes['message'] ?? ''));
                         return back()->with('error', 'Xpressbees manifestation failed: ' . ($xbRes['message'] ?? 'Error pushing to Xpressbees'));
@@ -990,13 +995,14 @@ class HubShipmentController extends Controller
 
         // Generate Real Barcode safely with error handling
         $barcode = null;
+        $targetAwb = !empty($shipment->courier_awb) ? $shipment->courier_awb : $shipment->awb_number;
         try {
             if (class_exists(\Picqer\Barcode\BarcodeGeneratorSVG::class)) {
                 $generator = new \Picqer\Barcode\BarcodeGeneratorSVG();
-                $barcode = $generator->getBarcode($shipment->awb_number, $generator::TYPE_CODE_128, 2, 60);
+                $barcode = $generator->getBarcode($targetAwb, $generator::TYPE_CODE_128, 2, 60);
             }
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning("Barcode generation failed for {$shipment->awb_number}: " . $e->getMessage());
+            \Illuminate\Support\Facades\Log::warning("Barcode generation failed for {$targetAwb}: " . $e->getMessage());
             $barcode = null;
         }
 
@@ -1084,9 +1090,10 @@ class HubShipmentController extends Controller
         $items = [];
         foreach ($shipments as $shipment) {
             $barcode = null;
-            if ($generator && !empty($shipment->awb_number)) {
+            $targetAwb = !empty($shipment->courier_awb) ? $shipment->courier_awb : $shipment->awb_number;
+            if ($generator && !empty($targetAwb)) {
                 try {
-                    $barcode = $generator->getBarcode($shipment->awb_number, $generator::TYPE_CODE_128, 2, 60);
+                    $barcode = $generator->getBarcode($targetAwb, $generator::TYPE_CODE_128, 2, 60);
                 } catch (\Throwable $e) {
                     $barcode = null;
                 }

@@ -86,7 +86,7 @@
         <input type="hidden" name="shipment_id" value="{{ ($mode ?? '') === 'edit' ? ($shipment->id ?? '') : '' }}">
         <input type="hidden" name="shipment_type" :value="shipmentType">
         <input type="hidden" name="payment_mode" :value="paymentMode">
-        <input type="hidden" name="ship_now" value="1">
+        <input type="hidden" name="ship_now" value="0">
         
         <!-- Custom Tabs mimicking BigShip -->
         <div class="flex border-b border-gray-200 mb-6 bg-transparent">

@@ -43,14 +43,10 @@ class ShipmentService
                     $shipment->pickup_franchise_id = $routing['pickup_franchise_id'];
                 }
                 $shipment->provider_id = null;
-                $shipment->courier_partner = 'Onestall Franchise'; // Legacy compatibility
             } else {
                 $shipment->franchise_id = null;
                 $shipment->state_franchise_id = null;
                 $shipment->provider_id = $routing['provider_id'];
-                
-                $provider = Courier::find($routing['provider_id']);
-                $shipment->courier_partner = $provider ? $provider->name : 'External Provider';
             }
         } else {
             // Throw exception or set default state if completely unserviceable?
@@ -73,7 +69,8 @@ class ShipmentService
         }
 
         $shipment->awb_number = $this->awbService->generateUniqueAwb();
-        $shipment->status = 'Manifested';
+        $shipment->status = 'New';
+        $shipment->courier_partner = null;
 
         // Auto-fill origin warehouse if omitted
         $user = \App\Models\User::find($userId);
